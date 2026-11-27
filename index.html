@@ -686,7 +686,7 @@ function render(){
  $('#bell').hidden=!approved();$('#bell').innerHTML=BELL+(n?`<span class="bd">${n}</span>`:'');$('#bell').classList.toggle('on',ibOpen);
  $('#bnav').hidden=!approved();const BN=TB3.filter(x=>!x[3]);$('#bnav').style.gridTemplateColumns=`repeat(${BN.length+1},1fr)`;$('#bnav').innerHTML=BN.map(([k,l,ic,,b])=>`<button class="${view===k&&!ibOpen?'on':''}" data-v="${k}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ic}</svg>${l}${b?`<span class="bd">${b}</span>`:''}</button>`).join('')+`<button class="${ibOpen?'on':''}" data-bell>${BELL}Entrada${n?`<span class="bd">${n}</span>`:''}</button>`;
  $('#ibx').innerHTML=approved()&&ibOpen?`<div class="ibov" data-bellx></div><div class="ibp">${inbox()}</div>`:'';
- $('#wmenu').innerHTML=wOpen&&uid?`<div class="wm" role="menu"><div class="wmh">${me?av(me,''):''}<div><b>${esc(me?per(me).n:'Sem pessoa')}</b><small>${me?esc(per(me).r):''}${isMgr()?' · Gestão':''}</small></div></div>${isMgr()?`<button data-acessos role="menuitem">Acessos da equipa</button>`:''}${canInstall()?'<button data-install role="menuitem">Instalar a app neste aparelho</button>':''}<button data-sair role="menuitem">Sair</button><p>${isMgr()?'Podes criar, passar e mudar tarefas de toda a equipa.':'Vês tudo; só mexes nas tuas tarefas.'}</p></div>`:'';
+ $('#wmenu').innerHTML=wOpen&&uid?`<div class="wm" role="menu"><div class="wmh">${me?av(me,''):''}<div><b>${esc(me?per(me).n:'Sem pessoa')}</b><small>${me?esc(per(me).r):''}${isMgr()?' · Gestão':''}</small></div></div>${isMgr()?`<button data-acessos role="menuitem">Acessos da equipa</button>`:''}${('Notification' in window)&&!notifOn?'<button data-notif role="menuitem">Ligar avisos neste aparelho</button>':''}${canInstall()?'<button data-install role="menuitem">Instalar a app neste aparelho</button>':''}<button data-sair role="menuitem">Sair</button><p>${isMgr()?'Podes criar, passar e mudar tarefas de toda a equipa.':'Vês tudo; só mexes nas tuas tarefas.'}</p></div>`:'';
  $('#who').innerHTML=me?`${av(me,'s')}<span class="wn">${esc(per(me).n)}</span>${isMgr()?'<span class="mg">Gestão</span>':''}`:uid?'Sem pessoa':'Sem sessão';
  document.querySelector('[data-new]').hidden=!approved();$('#who').hidden=!approved();
  const a=document.activeElement,sk=a&&a.id==='srch'?a.selectionStart:null,addKey=a&&a.closest&&a.closest('[data-add]')?a.closest('[data-add]').dataset.add+'|'+a.closest('[data-add]').dataset.area:null,val=addKey?a.value:'';
@@ -801,6 +801,8 @@ const JH='jhennyfer'; // quem faz a triagem das ideias
 let IDE=[],DM={},GR=[],PI=[],ideTab='novas',chatK=null,afterSave=null,dragging=false,dmSubs={},vozIds=new Set(),notifOn=false;
 try{const c=sessionStorage.getItem('tp_chat');if(c)chatK=c;const it=sessionStorage.getItem('tp_ide');if(it)ideTab=it}catch(e){}
 try{notifOn=('Notification' in window)&&Notification.permission==='granted'}catch(e){}
+try{const u=new URLSearchParams(location.search),a=u.get('abrir');if(a&&/^(meu|msgs|ideias|equipa)$/.test(a)){view=a;const c=u.get('c');if(c)chatK=c;history.replaceState(null,'',location.pathname)}}catch(e){}
+let PUSH=null;
 const pairK=(a,b)=>[a,b].sort().join('__');
 const otherOf=k=>k==='grupo'?null:k.split('__').find(x=>x!==me);
 const mid=()=>me+'_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
@@ -831,8 +833,10 @@ const stopMic=()=>{if(rec)try{rec.stop()}catch(e){}};
 /* ---------- avisos no ecrã ---------- */
 let lastSeenAt=Date.now();
 function notify(list){if(!notifOn||!document.hidden)return;for(const m of list){try{const n=new Notification('Tarefas PROAGE · '+m.titulo,{body:m.corpo,tag:m.tag});n.onclick=()=>{window.focus();if(m.k){view='msgs';chatK=m.k;render()}n.close()}}catch(e){}}}
-async function askNotif(){if(!('Notification' in window)){toast('Este navegador não mostra avisos.');return}
- const r=await Notification.requestPermission();notifOn=r==='granted';toast(notifOn?'Avisos ligados neste aparelho, enquanto as Tarefas estiverem abertas.':'Avisos não autorizados.');render()}
+async function askNotif(){if(!('Notification' in window)){toast(isIOS&&!isStandalone()?'No iPhone, primeiro instala a app (Partilhar › Adicionar ao ecrã principal) e liga os avisos a partir dela.':'Este navegador não mostra avisos.');return}
+ const r=await Notification.requestPermission();notifOn=r==='granted';if(!notifOn){toast('Avisos não autorizados.');render();return}
+ let fechado=false;try{if(PUSH){await PUSH.ligar();fechado=true}}catch(e){console.warn(e)}
+ toast(fechado?'Avisos ligados neste aparelho, mesmo com a app fechada.':'Avisos ligados neste aparelho, enquanto as Tarefas estiverem abertas.');render()}
 
 /* ---------- mensagens ---------- */
 const convs=()=>[{k:'grupo',n:'Equipa · todas',sub:'Conversa geral, substitui o grupo de WhatsApp',g:1},...P.filter(p=>p.id!==me).map(p=>({k:pairK(me,p.id),p:p.id,n:p.n,sub:p.r}))];
@@ -995,6 +999,7 @@ let timer=0;
 (async()=>{
  try{user=await window.claude?.use?.('user')}catch(e){user=null}
  try{db=await window.claude?.use?.('db')}catch(e){db=null}
+ try{PUSH=await window.claude?.use?.('push');if(PUSH&&notifOn)PUSH.ligar().catch(()=>{})}catch(e){PUSH=null}
  if(user){try{uid=await user.id()}catch(e){}try{admin=!!(await user.canEdit())}catch(e){}}
  if(!db){clearTimeout(timer);offline=true;loaded=true;render();return}
  timer=setTimeout(()=>{if(!loaded){offline=true;loaded=true;render()}},10000);
