@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-PT"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#f6f1ea">
+<html lang="pt-PT"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#2a2420"><link rel="manifest" href="manifest.webmanifest"><link rel="icon" type="image/png" href="favicon-64.png"><link rel="apple-touch-icon" href="apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="PROAGE">
 <style>*,*::before,*::after{box-sizing:border-box}html,body{margin:0}</style>
 <title>Tarefas PROAGE</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -305,6 +305,11 @@ details[open] summary{margin-bottom:12px}
  .side::-webkit-scrollbar{display:none}
  .si{flex:none}
 }
+.instb{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-bottom:14px}
+.instb b{display:block;font-size:14px}@media (max-width:560px){.instb small{display:none}.instb .btn{padding:7px 12px}}.instb small{color:var(--soft);font-size:12.5px}.instb>div{flex:1;min-width:0}
+.instic img{width:40px;height:40px;border-radius:10px;display:block}
+.insth{background:var(--card);border-radius:20px;padding:24px;max-width:360px;width:calc(100% - 32px);display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.insth img{border-radius:14px}.insth h2{font-family:var(--serif);margin:4px 0 0;font-size:22px}.insth ol{margin:0;padding-left:20px;line-height:1.6;color:var(--ink)}
 /* ===== Ideias, Mensagens, voz e post-its ===== */
 .tabs button{position:relative}.tabs .bd{margin-left:6px}
 .btn.sm{padding:5px 10px;font-size:12px}
@@ -442,6 +447,9 @@ const DAY=864e5;
 let aOpen=false,view='meu',when='hoje',fA='',q='',db=null,user=null,loaded=false,offline=false,editing=null,ibTab='mim',ibOpen=false,wOpen=false;
 let uid=null,admin=false,me=null,TB=[],MEM={},PED={},OV={},NV={},LID={},names={},subs={},lidRef=null;
 try{const v=sessionStorage.getItem('tp_view');if(v)view=v;const b=sessionStorage.getItem('tp_ib');if(b)ibTab=b}catch(e){}
+let instEvt=null;const isStandalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();instEvt=e;try{render()}catch(x){}});window.addEventListener('appinstalled',()=>{instEvt=null;try{toast('App instalada')}catch(x){}});
+const canInstall=()=>!isStandalone()&&(!!instEvt||isIOS);
 const isMgr=()=>!!me&&admin&&MGR.includes(me);
 const approved=()=>!!me;
 const uidsOf=p=>Object.keys(MEM).filter(u=>MEM[u]===p);
@@ -637,7 +645,7 @@ meu(){const p=per(me),h=new Date().getHours(),base=T.filter(t=>t.quem===me),mine
  <header class="dh"><div><p class="dd">${new Date().toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long'})}</p><h1>${h<13?'Bom dia':h<20?'Boa tarde':'Boa noite'}, ${esc(p.n.replace('Dra. ',''))}</h1>
  <p class="sub">${when==='hoje'?(lt.length+rest.length?`${lt.length+rest.length} por fazer${lt.length?`, <b class="rd">${lt.length} atrasada${lt.length>1?'s':''}</b>`:''}.`:'Nada pendente para hoje.'):ttl}</p></div>
  ${when==='hoje'&&tot?`<div class="ring" title="${dn.length} de ${tot} feitas hoje"><svg viewBox="0 0 56 56"><circle cx="28" cy="28" r="${R}" class="rb"/><circle cx="28" cy="28" r="${R}" class="rf" stroke-dasharray="${C}" stroke-dashoffset="${C*(1-pc/100)}"/></svg><span><b>${dn.length}/${tot}</b><small>feitas</small></span></div>`:''}</header>
- ${un?`<button class="nudge" data-bell><span class="nd">${un}</span>${un>1?'novidades precisam':'novidade precisa'} de ti<span class="ar">Ver →</span></button>`:''}
+ ${canInstall()&&!instHide()?`<div class="instb"><span class="instic" aria-hidden="true"><img src="icon-192.png" alt=""></span><div><b>Instala a app das Tarefas</b><small>Fica com o ícone no ${isIOS?'iPhone':'ecrã'} e abre como uma app.</small></div><button class="btn pri" data-install>Instalar</button><button class="x" data-insthide aria-label="Agora não">✕</button></div>`:''}${un?`<button class="nudge" data-bell><span class="nd">${un}</span>${un>1?'novidades precisam':'novidade precisa'} de ti<span class="ar">Ver →</span></button>`:''}
  ${when!=='feitas'?`<form class="qa" data-add="${me}" data-area=""><span class="qp">+</span><input placeholder="Nova tarefa… ex.: Ligar à paciente amanhã !" aria-label="Nova tarefa" autocomplete="off"><button class="btn pri" type="submit">Adicionar</button></form><p class="qh">Escreve <b>hoje</b>, <b>amanhã</b>, um dia da semana ou <b>25/11</b> no fim para o prazo. <b>!</b> marca como urgente.</p>`:''}
  ${S('Atrasadas',lt,'r')}${S(when==='hoje'?'Hoje':ttl,rest)}${S('Próximos 7 dias',nx,'soft')}${S('Feitas',dn,'dn')}${when!=='feitas'?S('Pedi a outras pessoas',pedi,'soft',true):''}
  ${!mine.length&&!nx.length&&!pedi.length?`<div class="zero"><b>Tudo limpo</b>Não tens nada aqui. Bom trabalho.</div>`:''}${postits()}</div>`},
@@ -678,7 +686,7 @@ function render(){
  $('#bell').hidden=!approved();$('#bell').innerHTML=BELL+(n?`<span class="bd">${n}</span>`:'');$('#bell').classList.toggle('on',ibOpen);
  $('#bnav').hidden=!approved();const BN=TB3.filter(x=>!x[3]);$('#bnav').style.gridTemplateColumns=`repeat(${BN.length+1},1fr)`;$('#bnav').innerHTML=BN.map(([k,l,ic,,b])=>`<button class="${view===k&&!ibOpen?'on':''}" data-v="${k}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ic}</svg>${l}${b?`<span class="bd">${b}</span>`:''}</button>`).join('')+`<button class="${ibOpen?'on':''}" data-bell>${BELL}Entrada${n?`<span class="bd">${n}</span>`:''}</button>`;
  $('#ibx').innerHTML=approved()&&ibOpen?`<div class="ibov" data-bellx></div><div class="ibp">${inbox()}</div>`:'';
- $('#wmenu').innerHTML=wOpen&&uid?`<div class="wm" role="menu"><div class="wmh">${me?av(me,''):''}<div><b>${esc(me?per(me).n:'Sem pessoa')}</b><small>${me?esc(per(me).r):''}${isMgr()?' · Gestão':''}</small></div></div>${isMgr()?`<button data-acessos role="menuitem">Acessos da equipa</button>`:''}<button data-sair role="menuitem">Sair</button><p>${isMgr()?'Podes criar, passar e mudar tarefas de toda a equipa.':'Vês tudo; só mexes nas tuas tarefas.'}</p></div>`:'';
+ $('#wmenu').innerHTML=wOpen&&uid?`<div class="wm" role="menu"><div class="wmh">${me?av(me,''):''}<div><b>${esc(me?per(me).n:'Sem pessoa')}</b><small>${me?esc(per(me).r):''}${isMgr()?' · Gestão':''}</small></div></div>${isMgr()?`<button data-acessos role="menuitem">Acessos da equipa</button>`:''}${canInstall()?'<button data-install role="menuitem">Instalar a app neste aparelho</button>':''}<button data-sair role="menuitem">Sair</button><p>${isMgr()?'Podes criar, passar e mudar tarefas de toda a equipa.':'Vês tudo; só mexes nas tuas tarefas.'}</p></div>`:'';
  $('#who').innerHTML=me?`${av(me,'s')}<span class="wn">${esc(per(me).n)}</span>${isMgr()?'<span class="mg">Gestão</span>':''}`:uid?'Sem pessoa':'Sem sessão';
  document.querySelector('[data-new]').hidden=!approved();$('#who').hidden=!approved();
  const a=document.activeElement,sk=a&&a.id==='srch'?a.selectionStart:null,addKey=a&&a.closest&&a.closest('[data-add]')?a.closest('[data-add]').dataset.add+'|'+a.closest('[data-add]').dataset.area:null,val=addKey?a.value:'';
@@ -959,6 +967,13 @@ document.addEventListener('click',e=>{
  const pdl=e.target.closest('[data-pidel]');if(pdl){const id=pdl.dataset.pidel,p=PI.find(x=>x.id===id);if(!p)return;PI=PI.filter(x=>x.id!==id);render();del(`data/users/${uid}/${id}`).catch(()=>toast('Não foi possível apagar'));
   toast('Post-it apagado',()=>{PI.push(p);savePi(p);render()});return}
 });
+const instHide=()=>{try{return localStorage.getItem('tp_inst_no')==='1'}catch(e){return false}};
+async function doInstall(){wOpen=false;if(instEvt){instEvt.prompt();try{await instEvt.userChoice}catch(e){}instEvt=null;render();return}
+ if(isIOS)$('#ovl').innerHTML=`<div class="ov" id="ovI" style="justify-content:center;align-items:center"><div class="insth"><img src="apple-touch-icon.png" alt="" width="64" height="64"><h2>Instalar no iPhone</h2><ol><li>Abre esta página no <b>Safari</b>.</li><li>Toca em <b>Partilhar</b> <span aria-hidden="true">(o quadrado com a seta para cima)</span>.</li><li>Escolhe <b>Adicionar ao ecrã principal</b> e depois <b>Adicionar</b>.</li></ol><button class="btn pri" data-insclose>Percebi</button></div></div>`}
+document.addEventListener('click',e=>{if(e.target.closest('[data-install]')){e.preventDefault();doInstall();return}
+ if(e.target.closest('[data-insthide]')){try{localStorage.setItem('tp_inst_no','1')}catch(x){}render();return}
+ if(e.target.closest('[data-insclose]')||e.target.id==='ovI'){$('#ovl').innerHTML=''}});
+if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
 document.addEventListener('submit',async e=>{
  const f=e.target.closest('[data-send]');if(f){e.preventDefault();const t=$('#k_chat');if(!t||!t.value.trim())return;const v=t.value,voz=vozIds.has('k_chat');vozIds.delete('k_chat');stopMic();t.value='';
   if(!await sendMsg(f.dataset.send,v,voz)){const t2=$('#k_chat');if(t2)t2.value=v}else{const t2=$('#k_chat');if(t2&&matchMedia('(min-width:761px)').matches)t2.focus()}return}
