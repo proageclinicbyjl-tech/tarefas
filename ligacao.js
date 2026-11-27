@@ -26,10 +26,22 @@ function sub(kind,key,cb,err){const s={kind,key,cb,err,last:undefined};subs.push
 const db={collection:c=>({onSnapshot:(cb,err)=>sub('col',c,cb,err)}),
  doc:p=>({onSnapshot:(cb,err)=>sub('doc',p,cb,err),set:d=>write(p,d),delete:()=>remove(p),get:async()=>snap({kind:'doc',key:p})})};
 const user={id:async()=>EU.id,canEdit:async()=>!!EU.gestao,isOwner:()=>false,profiles:async()=>({}),me:async()=>({id:EU.id})};
-window.claude={use:async n=>{await sessao;return n==='db'?db:n==='user'?user:null}};
+/* ---------- avisos com a app fechada ---------- */
+const FN=U+'/functions/v1/avisar';
+const b64u=x=>{const p='='.repeat((4-x.length%4)%4),r=atob((x+p).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(r,c=>c.charCodeAt(0))};
+const push={suportado:()=>'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window,
+ async ativo(){if(!push.suportado())return false;try{const r=await navigator.serviceWorker.getRegistration();return !!(r&&await r.pushManager.getSubscription())}catch(e){return false}},
+ async ligar(){if(!push.suportado())throw new Error('Este aparelho não recebe avisos com a app fechada.');
+  const reg=await navigator.serviceWorker.ready;let s=await reg.pushManager.getSubscription();
+  if(!s){const r=await fetch(FN);const j=await r.json();if(!j.chave)throw new Error('Avisos ainda não configurados.');
+   s=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(j.chave)})}
+  const r=await rpc('push_registar',{p_token:tok,p_sub:s.toJSON()});if(r&&r.erro)throw new Error(r.erro);return true}};
+async function pushSair(){try{const r=await navigator.serviceWorker?.getRegistration();const s=r&&await r.pushManager.getSubscription();
+ if(s){await rpc('push_remover',{p_token:tok,p_endpoint:s.endpoint});await s.unsubscribe()}}catch(e){}}
+window.claude={use:async n=>{await sessao;return n==='db'?db:n==='user'?user:n==='push'?push:null}};
 
 /* ---------- sair ---------- */
-async function fim(){try{if(tok)await rpc('sair',{p_token:tok})}catch(e){}try{localStorage.removeItem(LS)}catch(e){}location.reload()}
+async function fim(){if(tok)await pushSair();try{if(tok)await rpc('sair',{p_token:tok})}catch(e){}try{localStorage.removeItem(LS)}catch(e){}location.reload()}
 
 /* ---------- ecrã de entrada ---------- */
 const css=`#lg{position:fixed;inset:0;z-index:200;background:#fbf7f1;display:grid;grid-template-columns:minmax(320px,42%) 1fr;overflow:auto;color:#2a2420;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}
