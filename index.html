@@ -277,6 +277,20 @@ details[open] summary{margin-bottom:12px}
 .t.row .ml{margin-top:0;flex:0 1 auto;justify-content:flex-end}
 .sec.dn .lst{background:transparent}
 .zero{text-align:center;padding:40px 16px;color:var(--soft)}.zero b{display:block;font-family:var(--serif);font-size:20px;color:var(--ink);margin-bottom:4px}
+.t .tn{display:none}
+@media (min-width:761px){
+ .day{max-width:1120px}
+ .day .lst{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;background:none;border:0;border-radius:0;overflow:visible}
+ .day .t.row{grid-template-columns:auto minmax(0,1fr);align-content:start;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 1px 2px rgba(42,36,32,.05);padding:14px;min-height:112px;transition:border-color .15s,box-shadow .15s,transform .15s}
+ .day .t.row:last-child{border-bottom:1px solid var(--line)}
+ .day .t.row:hover{background:var(--card);border-color:var(--gold);box-shadow:0 8px 20px rgba(42,36,32,.09);transform:translateY(-1px)}
+ .day .t.row .tb{display:flex;flex-direction:column;align-items:stretch;gap:8px;height:100%}
+ .day .t.row .tt{flex:none;font-size:14.5px;line-height:1.35}
+ .day .t.row .tn{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;font-size:12.5px;line-height:1.4;color:var(--soft)}
+ .day .t.row .ml{margin-top:auto;justify-content:flex-start}
+ .day .sec.r .t.row{border-color:rgba(214,69,58,.4)}
+ .day .sec.dn .t.row{background:transparent;box-shadow:none}
+}
 /* navegação de baixo (telemóvel) */
 .bnav{display:none}
 @media (max-width:760px){
@@ -518,7 +532,7 @@ const sortT=(a,b)=>(late(b)-late(a))||((a.prioridade==='alta'?0:1)-(b.prioridade
 const doneToday=t=>t.estado==='feito'&&t.feito_em&&iso(new Date(t.feito_em))===TODAY();
 const norm=x=>String(x||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
 function pick(arr){return pick0(arr).filter(t=>!q||norm(t.titulo+' '+(t.notas||'')+' '+per(t.quem).n).includes(norm(q)))}
-function pick0(arr){if(when==='atrasadas')return arr.filter(late);if(when==='espera')return arr.filter(t=>t.estado==='espera');if(when==='hoje')return arr.filter(t=>forToday(t)||doneToday(t));if(when==='semana')return arr.filter(t=>open(t)&&t.prazo&&t.prazo<=endWeek());if(when==='tudo')return arr.filter(open);return arr.filter(t=>t.estado==='feito'&&t.feito_em&&Date.now()-t.feito_em<14*DAY)}
+function pick0(arr){if(when==='atrasadas')return arr.filter(late);if(when==='espera')return arr.filter(t=>t.estado==='espera');if(when==='hoje')return arr.filter(t=>forToday(t)||doneToday(t)||(open(t)&&!t.prazo&&t.prioridade==='alta'));if(when==='semana')return arr.filter(t=>open(t)&&t.prazo&&t.prazo<=endWeek());if(when==='tudo')return arr.filter(open);return arr.filter(t=>t.estado==='feito'&&t.feito_em&&Date.now()-t.feito_em<14*DAY)}
 
 /* ---------- gravar ---------- */
 const clean=t=>{const o={};for(const k in t)if(k!=='id'&&k[0]!=='_')o[k]=t[k]===undefined?null:t[k];return o};
@@ -653,7 +667,7 @@ function card(t,showWho,row){const cl=t.checklist||[],cd=cl.filter(c=>c.f).lengt
  if(!ed)bits.push(`<span class="lock" title="Só para ver">${LOCK}</span>`);
  return `<div class="t${row?' row':''}${t.estado==='feito'?' done':''}${t.sugestao?' sug':''}${ed?'':' ro'}" data-id="${t.id}" draggable="${isMgr()}">
  <button class="ck" data-done="${t.id}" aria-label="${t.estado==='feito'?'Desmarcar':'Marcar como feita'}"${ed?'':' disabled tabindex="-1"'}>${CHECK}</button>
- <div class="tb"><div class="tt">${t.prioridade==='alta'&&open(t)?'<span class="urg" title="Urgente">!</span>':''}${esc(t.titulo)}</div><div class="ml">${bits.join('')}</div></div></div>`}
+ <div class="tb"><div class="tt">${t.prioridade==='alta'&&open(t)?'<span class="urg" title="Urgente">!</span>':''}${esc(t.titulo)}</div>${row&&t.notas?`<div class="tn">${esc(String(t.notas).split('\n').filter(l=>!/^Origem:/.test(l)).join(' ').slice(0,220))}</div>`:''}<div class="ml">${bits.join('')}</div></div></div>`}
 function column(key,title,sub,head,arr,addFor,showWho,addArea){
  const lt=arr.filter(late),rest=arr.filter(t=>!late(t)&&open(t)),dn=arr.filter(t=>!open(t));
  let body='';
