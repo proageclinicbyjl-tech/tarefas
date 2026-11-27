@@ -38,7 +38,13 @@ const push={suportado:()=>'serviceWorker' in navigator&&'PushManager' in window&
   const r=await rpc('push_registar',{p_token:tok,p_sub:s.toJSON()});if(r&&r.erro)throw new Error(r.erro);return true}};
 async function pushSair(){try{const r=await navigator.serviceWorker?.getRegistration();const s=r&&await r.pushManager.getSubscription();
  if(s){await rpc('push_remover',{p_token:tok,p_endpoint:s.endpoint});await s.unsubscribe()}}catch(e){}}
-window.claude={use:async n=>{await sessao;return n==='db'?db:n==='user'?user:n==='push'?push:null}};
+/* ---------- mensagens de voz ---------- */
+const FA=U+'/functions/v1/audio';
+const audio={async enviar(blob){const r=await fetch(FA+'?acao=enviar',{method:'POST',headers:{'x-token':tok,'Content-Type':(blob.type||'audio/webm').split(';')[0]},body:blob});
+  let j={};try{j=await r.json()}catch(e){}if(!r.ok||!j.path)throw new Error(j.erro||'Não foi possível enviar o áudio');return j.path},
+ async url(path){const r=await fetch(FA+'?acao=ouvir',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:tok,path})});
+  let j={};try{j=await r.json()}catch(e){}if(!j.url)throw new Error(j.erro||'indisponível');return j.url}};
+window.claude={use:async n=>{await sessao;return n==='db'?db:n==='user'?user:n==='push'?push:n==='audio'?audio:null}};
 
 /* ---------- sair ---------- */
 async function fim(){if(tok)await pushSair();try{if(tok)await rpc('sair',{p_token:tok})}catch(e){}try{localStorage.removeItem(LS)}catch(e){}location.reload()}
