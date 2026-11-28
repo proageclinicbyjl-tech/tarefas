@@ -401,6 +401,8 @@ details[open] summary{margin-bottom:12px}
 .c2t{align-self:flex-start;display:flex;align-items:center;gap:4px;padding:0 6px;margin:-3px 0 3px;font-size:11px;color:var(--soft)}
 .c2t button{border:0;background:none;padding:2px 0;font-size:11px;color:var(--soft);text-decoration:underline;text-underline-offset:2px;cursor:pointer}
 .c2t button:hover{color:var(--gold)}.c2t.me{align-self:flex-end}
+.c2t{animation:cwin .15s ease-out}.c2t button{font-size:12px;font-weight:600;color:var(--ink);text-decoration:none;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px 10px}.c2t span{display:none}
+.cms .cb[data-msel]{cursor:pointer}.cb.sel{box-shadow:0 0 0 2px var(--gold)}
 .ctip{display:flex;align-items:center;gap:6px;border:0;border-radius:9px;padding:5px 9px;margin:2px 0 5px;font-size:12px;font-weight:700;cursor:pointer;text-align:left;width:100%}
 .ctip span{font-size:13px}
 .ctip.tk{background:var(--bluebg);color:var(--blue)}.ctip.tk.ok{background:var(--greenbg);color:var(--green)}
@@ -545,7 +547,7 @@ const P=[
  {id:'flavia',n:'Flávia',r:'Leads e marcações',a:'comercial',c:'#b0563f'},
  {id:'brenda',n:'Brenda',r:'Receção e stock',a:'operacional',c:'#4f7a5c'},
  {id:'mariana',n:'Mariana',r:'Felicidade',a:'pessoas',c:'#a86e8f',x:1},
- {id:'eduarda',n:'Eduarda',r:'Estratégia',a:'negocio',c:'#3f6b8f',x:1},
+ {id:'eduarda',n:'Eduarda',r:'Estratégia e marketing',a:'negocio',c:'#3f6b8f',x:1},
  {id:'luz',n:'Luz',r:'Marketing, Meta e CRM',a:'marketing',c:'#7b5ea7',x:1}];
 /* quem pode criar, passar e mudar tarefas de toda a gente */
 const MGR=['joana','eduarda','mariana','jhennyfer'];
@@ -938,7 +940,7 @@ function toast(msg,undo){clearTimeout(window._tt);$('#toast').innerHTML=`<div cl
 
 /* ===================== Ideias, Mensagens, voz e post-its (27/11/2026) ===================== */
 const JH='jhennyfer'; // quem faz a triagem das ideias
-let cwAnim=false,piNew=null,GRP=[],GM={},gmSubs={},modo='msg',cNew=null,gSel=new Set(),gInfo=false,piMenu=false,IDE=[],DM={},GR=[],PI=[],ideTab='novas',chatK=null,afterSave=null,dragging=false,dmSubs={},vozIds=new Set(),notifOn=false,chatOpen=false,peek=null,GRAV=null,AUDIO=null;
+let selMsg=null,cwAnim=false,piNew=null,GRP=[],GM={},gmSubs={},modo='msg',cNew=null,gSel=new Set(),gInfo=false,piMenu=false,IDE=[],DM={},GR=[],PI=[],ideTab='novas',chatK=null,afterSave=null,dragging=false,dmSubs={},vozIds=new Set(),notifOn=false,chatOpen=false,peek=null,GRAV=null,AUDIO=null;
 try{const c=sessionStorage.getItem('tp_chat');if(c)chatK=c;chatOpen=sessionStorage.getItem('tp_cw')==='1';const it=sessionStorage.getItem('tp_ide');if(it)ideTab=it}catch(e){}
 try{notifOn=('Notification' in window)&&Notification.permission==='granted'}catch(e){}
 try{const u=new URLSearchParams(location.search),a=u.get('abrir');if(a&&/^(meu|msgs|ideias|equipa)$/.test(a)){view=a;const c=u.get('c');if(c)chatK=c;history.replaceState(null,'',location.pathname)}}catch(e){}
@@ -1000,8 +1002,8 @@ function tipoChip(m){if(m.tipo==='tarefa'){const t=T.find(x=>x.id===m.tid),f=t&&
  if(m.tipo==='ideia')return `<button type="button" class="ctip id" ${isMgr()&&m.iid?`data-ide="${esc(m.iid)}"`:''}><span aria-hidden="true">💡</span>Ideia na Caixa de ideias</button>`;return ''}
 function bubble(m,k){const mine=m.p===me,sys=m.sys,au=m.audio||m.up;
  if(sys)return `<div class="cbs">${esc(m.t)}</div>`;
- const acts=m.up||m.tipo?'':`<div class="c2t${mine?' me':''}"><button type="button" data-m2t="${k}|${m.id}">Tornar tarefa</button><span aria-hidden="true">·</span><button type="button" data-m2i="${k}|${m.id}">Tornar ideia</button></div>`;
- return `<div class="cb${mine?' me':''}${au?' au':''}${m.tipo?' t-'+m.tipo:''}" data-mid="${m.id}">${tipoChip(m)}${!mine&&isG(k)?`<span class="cbn" style="color:${per(m.p).c}">${esc(per(m.p).n)}</span>`:''}${au?audioHtml(m)+trHtml(m.t):`<div class="cbt">${esc(m.t).replace(/\n/g,'<br>')}</div>`}
+ const acts=m.up||m.tipo||selMsg!==m.id?'':`<div class="c2t${mine?' me':''}"><button type="button" data-m2t="${k}|${m.id}">Tornar tarefa</button><span aria-hidden="true">·</span><button type="button" data-m2i="${k}|${m.id}">Tornar ideia</button></div>`;
+ return `<div class="cb${mine?' me':''}${au?' au':''}${m.tipo?' t-'+m.tipo:''}${selMsg===m.id?' sel':''}" data-mid="${m.id}"${m.up||m.tipo?'':` data-msel="${m.id}"`}>${tipoChip(m)}${!mine&&isG(k)?`<span class="cbn" style="color:${per(m.p).c}">${esc(per(m.p).n)}</span>`:''}${au?audioHtml(m)+trHtml(m.t):`<div class="cbt">${esc(m.t).replace(/\n/g,'<br>')}</div>`}
  <div class="cbm">${m.voz&&!au?'<span title="Escrito por voz">🎙</span>':''}<span>${hhmm(m.at)}</span></div></div>${acts}`}
 function thread(k){const L=[...msgsOf(k),...PEND.filter(x=>x.k===k)];let out='',d0='';for(const m of L){const d=iso(new Date(m.at));if(d!==d0){out+=`<div class="cday">${dia(m.at)}</div>`;d0=d}out+=bubble(m,k)}
  return out||`<div class="cempty">${k==='grupo'?'<b>Equipa</b>Aqui falas com a equipa toda.':grpOf(k)?'<b>Grupo criado</b>Escreve a primeira mensagem.':'<b>Conversa nova</b>Escreve ou grava a primeira mensagem.'}</div>`}
@@ -1149,7 +1151,7 @@ function modesBar(k){if(k==='ideias')return '';const o=otherOf(k),g=grpOf(k);
  const forTxt=!isMgr()?'para ti':o?'para '+per(o).n:'';
  return `<div class="cmodes" role="radiogroup" aria-label="O que estás a enviar">${[['msg','💬','Mensagem'],['tarefa','☐','Tarefa'],['ideia','💡','Ideia']].map(([v,i,l])=>`<button type="button" role="radio" aria-checked="${modo===v}" class="cmd${modo===v?' on':''}" data-modo="${v}"><span aria-hidden="true">${i}</span>${l}</button>`).join('')}
  ${modo==='tarefa'?(forTxt?`<span class="cfor">${esc(forTxt)}</span>`:`<label class="cfor">para <select id="k_tq" aria-label="Para quem é a tarefa">${pool.map(id=>`<option value="${id}">${id===me?'mim':esc(per(id).n)}</option>`).join('')}</select></label>`):''}</div>`}
-const modeHint=k=>k==='ideias'?'Vai para a Jhennyfer, que decide quando se vê. Não entra como urgência.':modo==='tarefa'?'Cria a tarefa e envia-a nesta conversa. Escreve hoje, amanhã ou 25/11 no fim para o prazo; ! marca como urgente.':modo==='ideia'?'Vai para a Caixa de ideias e fica também nesta conversa.':'Depois de enviar, qualquer mensagem pode virar tarefa ou ideia.';
+const modeHint=k=>k==='ideias'?'Vai para a Jhennyfer, que decide quando se vê. Não entra como urgência.':modo==='tarefa'?'Cria a tarefa e envia-a nesta conversa. Escreve hoje, amanhã ou 25/11 no fim para o prazo; ! marca como urgente.':modo==='ideia'?'Vai para a Caixa de ideias e fica também nesta conversa.':'Toca numa mensagem para a tornar tarefa ou ideia.';
 const modePh=k=>k==='ideias'?'Escreve ou grava a tua ideia…':modo==='tarefa'?'O que é preciso fazer?':modo==='ideia'?'Qual é a ideia?':'Escreve uma mensagem…';
 let peekT=null;const BOOT=Date.now();
 function showPeek(k,m){if(chatOpen&&chatK===k)return;const g=grpOf(k);peek={k,n:k==='grupo'?'Equipa · '+per(m.p).n:g?(g.nome||'Grupo')+' · '+per(m.p).n:per(m.p).n,t:m.t||'🎙 Mensagem de voz'};clearTimeout(peekT);peekT=setTimeout(()=>{peek=null;render()},7000)}
@@ -1205,6 +1207,8 @@ document.addEventListener('click',e=>{
  if(e.target.closest('[data-gcriar]')){criarGrupo();return}
  if(e.target.closest('[data-ginfo]')){gInfo=!gInfo;render();return}
  if(e.target.closest('[data-gsair]')){const b=e.target.closest('[data-gsair]');if(!b.dataset.arm){b.dataset.arm=1;b.textContent='Tocar outra vez para sair';return}sairGrupo();return}
+ const ms=e.target.closest('[data-msel]');if(ms&&!e.target.closest('button,a,[data-play]')){selMsg=selMsg===ms.dataset.msel?null:ms.dataset.msel;render();return}
+ if(selMsg&&!e.target.closest('.c2t')&&e.target.closest('.cms')){selMsg=null;render()}
  const md=e.target.closest('[data-modo]');if(md){modo=md.dataset.modo;render();setTimeout(()=>{const t=$('#k_chat');if(t){t.focus()}},0);return}},true);
 document.addEventListener('input',e=>{if(e.target.id==='k_cs'){const v=e.target.value;render();const i=$('#k_cs');if(i){i.value=v;i.focus()}}});
 document.addEventListener('click',e=>{
@@ -1276,7 +1280,7 @@ function msgsExtra(){const L=[];if(!approved())return L;const now=Date.now();
 /* ---------- eventos: ideias, mensagens, voz, post-its ---------- */
 document.addEventListener('click',e=>{
  const mc=e.target.closest('[data-mic]');if(mc){e.preventDefault();micToggle(mc.dataset.mic);return}
- const ch=e.target.closest('[data-chat]');if(ch){stopMic();if(GRAV&&GRAV.k!==(ch.dataset.chat||null))recStop();ibOpen=false;if(!chatOpen)cwAnim=true;chatOpen=true;peek=null;if((ch.dataset.chat||null)!==chatK){modo='msg';gInfo=false}cNew=null;gSel.clear();chatK=ch.dataset.chat||null;try{sessionStorage.setItem('tp_chat',chatK||'');sessionStorage.setItem('tp_cw','1')}catch(x){}render();if(chatK)setTimeout(()=>{const t=$('#k_chat');if(t&&matchMedia('(min-width:761px)').matches)t.focus()},0);return}
+ const ch=e.target.closest('[data-chat]');if(ch){stopMic();if(GRAV&&GRAV.k!==(ch.dataset.chat||null))recStop();ibOpen=false;if(!chatOpen)cwAnim=true;chatOpen=true;peek=null;if((ch.dataset.chat||null)!==chatK){modo='msg';gInfo=false;selMsg=null}cNew=null;gSel.clear();chatK=ch.dataset.chat||null;try{sessionStorage.setItem('tp_chat',chatK||'');sessionStorage.setItem('tp_cw','1')}catch(x){}render();if(chatK)setTimeout(()=>{const t=$('#k_chat');if(t&&matchMedia('(min-width:761px)').matches)t.focus()},0);return}
  if(e.target.closest('[data-notif]')){askNotif();return}
  const it=e.target.closest('[data-idt]');if(it){ideTab=it.dataset.idt;try{sessionStorage.setItem('tp_ide',ideTab)}catch(x){}render();return}
  const io=e.target.closest('[data-ide]');if(io){ibOpen=false;render();ideDrawer(io.dataset.ide);return}
