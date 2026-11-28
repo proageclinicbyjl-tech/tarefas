@@ -127,6 +127,12 @@ h1{font-family:var(--serif);font-weight:600;font-size:28px;line-height:1.1;margi
 .people{display:flex;flex-wrap:wrap;gap:6px}
 .pp{display:flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:3px 10px 3px 3px;font-size:12.5px;font-weight:600}
 .pp.on{border-color:var(--ink);background:var(--ink);color:var(--paper)}
+.labh{font-weight:500;color:var(--soft);font-size:11.5px;text-transform:none;letter-spacing:0;margin-left:4px}
+.qmode{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.qm{display:flex;flex-direction:column;gap:2px;text-align:left;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:9px 11px;cursor:pointer;color:var(--ink)}
+.qm b{font-size:13px}.qm small{color:var(--soft);font-size:11.5px;line-height:1.35}
+.qm.on{border-color:var(--gold);background:#f6efe4;box-shadow:0 0 0 2px rgba(176,141,87,.2)}
+.whos{display:inline-flex;align-items:center;gap:5px}.avs{display:inline-flex}.avs .av{box-shadow:0 0 0 2px var(--card)}.avs .av+.av{margin-left:-6px}
 .opts{display:flex;flex-wrap:wrap;gap:6px}
 .op{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px;font-size:12.5px;font-weight:600}
 .op.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
@@ -575,20 +581,23 @@ const canInstall=()=>!isStandalone()&&(!!instEvt||isIOS);
 const isMgr=()=>!!me&&admin&&MGR.includes(me);
 const approved=()=>!!me;
 const uidsOf=p=>Object.keys(MEM).filter(u=>MEM[u]===p);
+const quemTodos=t=>[t.quem,...(t.com||[]).filter(x=>x&&x!==t.quem)];
+const has=(t,p)=>t.quem===p||(t.com||[]).includes(p);
+const quemNomes=t=>quemTodos(t).map(x=>per(x).n.replace(/^Dra?\. /,'')).join(', ');
 
 /* junta as tarefas da gestão (tasks), o que cada pessoa mudou nas suas (t/<id>/ov) e as que criou para si (t/<id>/n) */
 let T=[];
 function build(){
  const out=[];
  for(const b of TB){const t={...b,_src:'base',comentarios:[...(b.comentarios||[])]};
-  for(const u of uidsOf(t.quem)){const o=(OV[u]||{})[t.id];if(!o)continue;
+  for(const u of quemTodos(t).flatMap(uidsOf)){const o=(OV[u]||{})[t.id];if(!o)continue;
    if((o.at||0)>(t.estado_at||t.criado||0)){t.estado=o.estado;t.feito_em=o.feito_em||null;t.feito_por=o.feito_por||null;t.espera_por=o.espera_por||null;t.atualizado=o.at}
    if(o.checklist&&(o.ck_at||0)>(t.ck_at||0))t.checklist=o.checklist;
    if(o.comentarios)t.comentarios.push(...o.comentarios)}
   t.comentarios.sort((a,b)=>a.at-b.at);out.push(t)}
  for(const u in NV){const p=MEM[u];if(!p)continue;for(const n of NV[u])out.push({...n,quem:p,_src:'nv',_uid:u})}
  T=out}
-const canEditT=t=>isMgr()||(approved()&&t.quem===me);
+const canEditT=t=>isMgr()||(approved()&&has(t,me));
 
 const open=t=>t.estado!=='feito';
 const late=t=>open(t)&&t.prazo&&t.prazo<TODAY();
@@ -596,7 +605,7 @@ const forToday=t=>open(t)&&t.prazo&&t.prazo<=TODAY();
 const sortT=(a,b)=>(late(b)-late(a))||((a.prioridade==='alta'?0:1)-(b.prioridade==='alta'?0:1))||String(a.prazo||'9').localeCompare(String(b.prazo||'9'))||(a.criado||0)-(b.criado||0);
 const doneToday=t=>t.estado==='feito'&&t.feito_em&&iso(new Date(t.feito_em))===TODAY();
 const norm=x=>String(x||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
-function pick(arr){return pick0(arr).filter(t=>!q||norm(t.titulo+' '+(t.notas||'')+' '+per(t.quem).n).includes(norm(q)))}
+function pick(arr){return pick0(arr).filter(t=>!q||norm(t.titulo+' '+(t.notas||'')+' '+quemNomes(t)).includes(norm(q)))}
 function pick0(arr){if(when==='atrasadas')return arr.filter(late);if(when==='espera')return arr.filter(t=>t.estado==='espera');if(when==='hoje')return arr.filter(t=>forToday(t)||doneToday(t)||(open(t)&&!t.prazo&&t.prioridade==='alta'));if(when==='semana')return arr.filter(t=>open(t)&&t.prazo&&t.prazo<=endWeek());if(when==='tudo')return arr.filter(open);return arr.filter(t=>t.estado==='feito'&&t.feito_em&&Date.now()-t.feito_em<14*DAY)}
 
 /* ---------- gravar ---------- */
@@ -618,7 +627,7 @@ async function save(t,prev){
    else if(t._src==='nv')await put(`t/${t._uid}/n/${t.id}`,clean(t));
    else{const base=TB.find(x=>x.id===t.id)||{};const o=clean(t);
     // a conversa da própria pessoa fica no espaço dela; aqui só a da gestão e a de quem não está ligada
-    const own=new Set(uidsOf(t.quem).flatMap(u=>(((OV[u]||{})[t.id]||{}).comentarios||[]).map(c=>c.at+'|'+c.t)));
+    const own=new Set(quemTodos(t).flatMap(uidsOf).flatMap(u=>(((OV[u]||{})[t.id]||{}).comentarios||[]).map(c=>c.at+'|'+c.t)));
     o.comentarios=(t.comentarios||[]).filter(c=>!own.has(c.at+'|'+c.t));
     o.estado_at=stCh?now:(base.estado_at||null);o.ck_at=ckCh?now:(base.ck_at||null);
     await put('tasks/'+t.id,o)}
@@ -643,7 +652,7 @@ async function toggleDone(t){
  if(!canEditT(t))return;
  if(t.estado==='feito'){await save({...t,estado:'afazer',feito_em:null,feito_por:null},t);return}
  const prev={...t};if(!await save({...t,estado:'feito',feito_em:Date.now(),feito_por:me,sugestao:false},prev))return;
- if(t.quem===me&&!T.some(x=>x.quem===me&&forToday(x)&&x.estado!=='feito'))setTimeout(()=>{celebrar()},350);
+ if(has(t,me)&&!T.some(x=>has(x,me)&&forToday(x)&&x.estado!=='feito'))setTimeout(()=>{celebrar()},350);
  let nx=null;if(t.recorrencia){nx=nextOf(t);await save(nx,null)}
  toast('Feito ✓'+(nx?` · volta ${fmtD(nx.prazo).toLowerCase()}`:''),async()=>{if(nx)await remove(nx);await save(prev,{...prev,estado:'feito'})})}
 const WD=['domingo','segunda','terca','quarta','quinta','sexta','sabado'];
@@ -669,24 +678,24 @@ async function markSeen(keys){if(!uid||!db)return;const now=Date.now();keys.forE
 function msgsMine(){
  const L=[],now=Date.now(),t0=TODAY(),fname=norm(per(me).n.replace('Dra. ',''));
  for(const t of T){
-  if(t.quem===me&&open(t)){
+  if(has(t,me)&&open(t)){
    if(t.pedido_por&&t.pedido_por!==me&&(t.criado||0)>now-7*DAY)L.push({k:`new:${t.id}`,p:3,kd:'Nova',who:t.pedido_por,at:t.criado,id:t.id,txt:`<b>${esc(per(t.pedido_por).n)}</b> passou-te uma tarefa: <b>${esc(t.titulo)}</b>${t.prazo?` · para ${fmtD(t.prazo).toLowerCase()}`:''}.`})}
-  if(t.quem===me||t.pedido_por===me)for(const c of t.comentarios||[])if(c.p!==me&&c.at>now-7*DAY)
+  if(has(t,me)||t.pedido_por===me)for(const c of t.comentarios||[])if(c.p!==me&&c.at>now-7*DAY)
    L.push({k:`cm:${t.id}:${c.at}`,p:2,kd:'Mensagem',who:c.p,at:c.at,id:t.id,txt:`<b>${esc(per(c.p).n)}</b> escreveu em <b>${esc(t.titulo)}</b>`,q:c.t});
-  if(t.quem!==me&&open(t)&&t.estado==='espera'&&t.espera_por&&fname&&norm(t.espera_por).includes(fname))
+  if(!has(t,me)&&open(t)&&t.estado==='espera'&&t.espera_por&&fname&&norm(t.espera_por).includes(fname))
    L.push({k:`wait:${t.id}`,p:2,kd:'À espera de ti',who:t.quem,at:t.atualizado||now,id:t.id,txt:`<b>${esc(per(t.quem).n)}</b> está à espera de ti em <b>${esc(t.titulo)}</b>.`});
-  if(t.pedido_por===me&&t.quem!==me&&t.estado==='feito'&&t.feito_em>now-3*DAY)
-   L.push({k:`ok:${t.id}`,p:5,kd:'Feita',who:t.quem,at:t.feito_em,id:t.id,txt:`<b>${esc(per(t.quem).n)}</b> terminou o que lhe pediste: <b>${esc(t.titulo)}</b>.`})}
+  if(t.pedido_por===me&&!has(t,me)&&t.estado==='feito'&&t.feito_em>now-3*DAY)
+   L.push({k:`ok:${t.id}`,p:5,kd:'Feita',who:t.quem,at:t.feito_em,id:t.id,txt:`<b>${esc(per(t.feito_por||t.quem).n)}</b> terminou o que lhe pediste: <b>${esc(t.titulo)}</b>.`})}
  return L.concat(msgsExtra())}
 function msgsTeam(){
  const L=[],now=Date.now(),t0=TODAY();
  for(const u in PED){const r=PED[u];if(!r||!r.p||MEM[u])continue;
   L.push({k:`ped:${u}:${r.at}`,p:0,kd:'Acesso',who:r.p,at:r.at,ped:u,txt:`<b>${esc(names[u]||'Uma conta')}</b> entrou e diz que é <b>${esc(per(r.p).n)}</b>. Confirmas?`})}
- for(const p of P){if(p.id===me)continue;const lt=T.filter(t=>t.quem===p.id&&late(t));if(!lt.length)continue;
+ for(const p of P){if(p.id===me)continue;const lt=T.filter(t=>has(t,p.id)&&late(t));if(!lt.length)continue;
   const old=lt.map(t=>t.prazo).sort()[0];
   L.push({k:`plate:${p.id}:${t0}:${lt.length}`,p:1,kd:'Atrasadas',who:p.id,at:now-1,person:p.id,txt:`<b>${esc(p.n)}</b> tem <b>${lt.length} tarefa${lt.length>1?'s':''} atrasada${lt.length>1?'s':''}</b>, a mais antiga desde ${fmtD(old).toLowerCase()}.`,
    q:lt.sort(sortT).slice(0,3).map(t=>t.titulo).join(' · ')})}
- for(const t of T){if(t.quem===me)continue;
+ for(const t of T){if(has(t,me))continue;
   if(open(t)&&t.estado==='espera'&&(t.atualizado||t.criado||now)<now-2*DAY)
    L.push({k:`stuck:${t.id}:${t0}`,p:2,kd:'Parada',who:t.quem,at:t.atualizado||t.criado,id:t.id,txt:`<b>${esc(t.titulo)}</b> (${esc(per(t.quem).n)}) está parada ${t.espera_por?'à espera de '+esc(t.espera_por):'à espera'} ${ago(t.atualizado||t.criado)}.`});
   if(open(t)&&t.prioridade==='alta'&&t.prazo===t0)
@@ -722,8 +731,8 @@ const unreadCount=()=>approved()?msgsMine().filter(m=>!seen(m.k)).length+(isMgr(
 /* ---------- cartão ---------- */
 function card(t,showWho,row){const cl=t.checklist||[],cd=cl.filter(c=>c.f).length,a=area(t.area),ed=canEditT(t);
  const bits=[];
- if(showWho)bits.push(`<span style="display:inline-flex;align-items:center;gap:4px">${av(t.quem,'s')}${esc(per(t.quem).n)}</span>`);
- if(t.estado==='feito')bits.push(`<span>Feito ${t.feito_em?fmtD(iso(new Date(t.feito_em))).toLowerCase():''}</span>`);
+ if(showWho||(t.com||[]).length){const W=quemTodos(t);bits.push(W.length>1?`<span class="whos" title="${esc(quemNomes(t))}"><span class="avs">${W.slice(0,4).map(x=>av(x,'s')).join('')}</span>${esc(W.length>2?per(W[0]).n.replace(/^Dra?\. /,'')+' +'+(W.length-1):quemNomes(t))}</span>`:`<span style="display:inline-flex;align-items:center;gap:4px">${av(t.quem,'s')}${esc(per(t.quem).n)}</span>`)}
+ if(t.estado==='feito')bits.push(`<span>Feito${(t.com||[]).length&&t.feito_por?' por '+esc(per(t.feito_por).n.replace(/^Dra?\. /,'')):''} ${t.feito_em?fmtD(iso(new Date(t.feito_em))).toLowerCase():''}</span>`);
  else if(t.prazo)bits.push(`<span class="d ${late(t)?'late':t.prazo===TODAY()?'today':''}">${late(t)?'Atrasada · ':''}${fmtD(t.prazo)}</span>`);
  if(t.estado==='espera')bits.push(`<span class="tag wait">À espera${t.espera_por?' · '+esc(t.espera_por):''}</span>`);
  if(t.estado==='curso')bits.push('<span class="tag go">A fazer agora</span>');
@@ -755,11 +764,11 @@ equipa(){const all=pick(T);const lt=T.filter(late).length;
  const order=[...P].sort((a,b)=>(a.id===me?-1:b.id===me?1:0)||((a.x||0)-(b.x||0)));
  return `<div class="head"><div><h1>${TIT[when]}</h1><p class="sub">${all.filter(open).length} tarefas${lt?` · <b style="color:var(--red)">${lt} atrasadas</b>`:''}${isMgr()?' · arrasta um cartão para outra pessoa para lhe passar a tarefa':''}</p></div>
  </div>${fbar()}${banner()}
- <div class="cols">${order.map(p=>{const arr=all.filter(t=>t.quem===p.id&&(!fA||t.area===fA)).sort(sortT);return column(p.id,p.n+(p.id===me?' (tu)':''),p.r+(p.x?' · externa':''),av(p.id),arr,p.id,false)}).join('')}</div>`},
-meu(){const p=per(me),h=new Date().getHours(),base=T.filter(t=>t.quem===me),mine=pick(base).sort(sortT);
+ <div class="cols">${order.map(p=>{const arr=all.filter(t=>has(t,p.id)&&(!fA||t.area===fA)).sort(sortT);return column(p.id,p.n+(p.id===me?' (tu)':''),p.r+(p.x?' · externa':''),av(p.id),arr,p.id,false)}).join('')}</div>`},
+meu(){const p=per(me),h=new Date().getHours(),base=T.filter(t=>has(t,me)),mine=pick(base).sort(sortT);
  const lt=mine.filter(late),rest=mine.filter(t=>open(t)&&!late(t)),dn=mine.filter(t=>!open(t));
  const nx=when==='hoje'?base.filter(t=>open(t)&&t.prazo&&t.prazo>TODAY()&&t.prazo<=addD(TODAY(),7)&&(!q||norm(t.titulo).includes(norm(q)))).sort(sortT):[];
- const pedi=T.filter(t=>open(t)&&t.pedido_por===me&&t.quem!==me).sort(sortT);
+ const pedi=T.filter(t=>open(t)&&t.pedido_por===me&&!has(t,me)).sort(sortT);
  const tot=lt.length+rest.length+dn.length,pc=tot?Math.round(dn.length/tot*100):0,R=22,C=2*Math.PI*R;
  const S=(h2,arr,cls='',who,col)=>arr.length?`<section class="sec ${cls}"><h2>${h2}<span>${arr.length}</span></h2><div class="lst">${arr.map(t=>card(t,who,true)).join('')}</div></section>`:'';
  const un=unreadCount();
@@ -827,7 +836,7 @@ function render(){
  audSync();
  if(addKey){const [qq,ar]=addKey.split('|');const f=document.querySelector(`[data-add="${qq}"][data-area="${ar}"] input`);if(f){f.value=val;f.focus()}}
  if(sk!=null){const f=$('#srch');if(f){f.focus();f.setSelectionRange(sk,sk)}}}
-function side(){const base=view==='meu'?T.filter(t=>t.quem===me):T,f=x=>x.filter(t=>!fA||t.area===fA);
+function side(){const base=view==='meu'?T.filter(t=>has(t,me)):T,f=x=>x.filter(t=>!fA||t.area===fA);
  const c=k=>{const w=when;when=k;const n=f(pick(base)).filter(k==='feitas'?()=>true:open).length;when=w;return n};
  const it=(k,l,ic,red)=>{const n=c(k);return `<button class="si${when===k?' on':''}" data-when="${k}"><span class="ic">${ic}</span>${l}<span class="n${red&&n?' r':''}">${n||''}</span></button>`};
  $('#side').innerHTML=`<div class="lb">${view==='meu'?'As minhas':'Ver'}</div>${it('hoje','Hoje','☀')}${it('semana','Esta semana','▦')}${it('tudo','Tudo por fazer','☰')}${it('atrasadas','Atrasadas','!',true)}${it('espera','À espera','◷')}${it('feitas','Feitas','✓')}
@@ -836,15 +845,16 @@ function side(){const base=view==='meu'?T.filter(t=>t.quem===me):T,f=x=>x.filter
 /* ---------- gaveta ---------- */
 function drawer(t){editing=t;const isNew=!T.some(x=>x.id===t.id),d=t,prev=isNew?null:{...t,checklist:JSON.parse(JSON.stringify(t.checklist||[]))};
  const ed=isNew||canEditT(t),full=isMgr()||(isNew)||(t._src==='nv'&&t.quem===me); // full = muda título, prazo, pessoa
- const st={quem:isMgr()?(d.quem||me):(isNew?me:d.quem),estado:d.estado||'afazer',prazo:d.prazo||null,checklist:JSON.parse(JSON.stringify(d.checklist||[]))};
+ const st={quem:isMgr()?(d.quem||me):(isNew?me:d.quem),com:[...(d.com||[])].filter(x=>x!==d.quem),cada:false,estado:d.estado||'afazer',prazo:d.prazo||null,checklist:JSON.parse(JSON.stringify(d.checklist||[]))};
  const qd=[['hoje','Hoje',TODAY()],['amanha','Amanhã',addD(TODAY(),1)],['semana','Até sábado',endWeek()],['sem','Sem data',null]];
  const dis=c=>c?'':' disabled';
  const draw=()=>{
  $('#ovl').innerHTML=`<div class="ov" id="ov"><div class="drawer" role="dialog" aria-label="Tarefa">
  <div style="display:flex;justify-content:space-between;align-items:center"><span class="lab" style="color:var(--gold)">${isNew?'Nova tarefa':ed?'Tarefa':'Tarefa · só para ver'}</span><button class="btn" id="dClose">Fechar</button></div>
- ${!ed?`<p class="note" style="margin:0;color:var(--soft);font-size:12.5px">${LOCK} Esta tarefa é de ${esc(per(d.quem).n)}. Só ela e a gestão a podem mudar.</p>`:!full?`<p class="note" style="margin:0;color:var(--soft);font-size:12.5px">${LOCK} O título, a pessoa e o prazo foram definidos pela gestão. Tu mudas o estado, os passos e a conversa.</p>`:''}
+ ${!ed?`<p class="note" style="margin:0;color:var(--soft);font-size:12.5px">${LOCK} Esta tarefa é de ${esc(quemNomes(d))}. Só ${(d.com||[]).length?'elas':'ela'} e a gestão a podem mudar.</p>`:!full?`<p class="note" style="margin:0;color:var(--soft);font-size:12.5px">${LOCK} O título, a pessoa e o prazo foram definidos pela gestão. Tu mudas o estado, os passos e a conversa.</p>`:''}
  <div class="fld"><label for="dT">O que é preciso fazer?</label><textarea id="dT" style="min-height:56px;font-weight:600;font-size:15px"${dis(full)}>${esc(d.titulo||'')}</textarea></div>
- <div class="fld"><span class="lab">Para quem?</span><div class="people" id="dQ">${(isMgr()?P:[per(st.quem)]).map(p=>`<button type="button" class="pp${st.quem===p.id?' on':''}" data-q="${p.id}"${dis(isMgr())}>${av(p.id,'s')}${esc(p.n)}</button>`).join('')}</div></div>
+ <div class="fld"><span class="lab">Para quem?${isMgr()?' <small class="labh">podes escolher várias pessoas</small>':''}</span><div class="people" id="dQ">${(isMgr()?P:[st.quem,...st.com].map(per)).map(p=>{const on=st.quem===p.id||st.com.includes(p.id);return `<button type="button" class="pp${on?' on':''}" data-q="${p.id}" aria-pressed="${on}"${dis(isMgr())}>${av(p.id,'s')}${esc(p.n)}</button>`}).join('')}</div>
+ ${st.com.length?`<div class="qmode">${isNew?`<button type="button" class="qm${!st.cada?' on':''}" data-cada="0"><b>Uma tarefa partilhada</b><small>Aparece a todas. Basta uma concluir.</small></button><button type="button" class="qm${st.cada?' on':''}" data-cada="1"><b>Uma tarefa para cada</b><small>Cada pessoa recebe e conclui a sua.</small></button>`:'<small class="labh">Tarefa partilhada: aparece a todas e basta uma concluir.</small>'}</div>`:''}</div>
  <div class="fld"><span class="lab">Quando?</span><div class="opts" id="dW">${qd.map(([k,l,v])=>`<button type="button" class="op${st.prazo===v?' on':''}" data-w="${v||''}"${dis(full)}>${l}</button>`).join('')}<input type="date" id="dP" value="${st.prazo||''}" style="width:auto;border:1px solid var(--line);border-radius:999px;padding:5px 10px;background:var(--card)" aria-label="Escolher data"${dis(full)}></div></div>
  ${isNew?'':`<div class="fld"><span class="lab">Como está?</span><div class="opts" id="dS">${Object.entries(ST).map(([k,l])=>`<button type="button" class="op${st.estado===k?' on':''}" data-s="${k}"${dis(ed)}>${l}</button>`).join('')}</div><input id="dE" value="${esc(d.espera_por||'')}" placeholder="À espera de quem ou de quê?" ${st.estado==='espera'?'':'hidden'}${dis(ed)}></div>`}
  <details ${d.notas||st.checklist.length||d.recorrencia||d.processo?'open':''}><summary>Mais detalhes</summary><div class="dg">
@@ -865,7 +875,9 @@ function drawer(t){editing=t;const isNew=!T.some(x=>x.id===t.id),d=t,prev=isNew?
  function wire(){
   $('#dClose').onclick=close;$('#ov').onclick=e=>{if(e.target.id==='ov')close()};
   if(!ed)return;
-  $('#dQ').onclick=e=>{const b=e.target.closest('[data-q]');if(!b||!isMgr())return;grab();const was=per(st.quem).a;st.quem=b.dataset.q;if(!d.area||d.area===was)d.area=per(st.quem).a;draw()};
+  $('#dQ').onclick=e=>{const b=e.target.closest('[data-q]');if(!b||!isMgr())return;grab();const was=per(st.quem).a,id=b.dataset.q;let W=[st.quem,...st.com];
+   if(W.includes(id)){if(W.length===1)return;W=W.filter(x=>x!==id)}else W.push(id);st.quem=W[0];st.com=W.slice(1);if(!d.area||d.area===was)d.area=per(st.quem).a;draw()};
+  document.querySelectorAll('[data-cada]').forEach(b=>b.onclick=()=>{grab();st.cada=b.dataset.cada==='1';draw()});
   $('#dW').onclick=e=>{const b=e.target.closest('[data-w]');if(!b||!full)return;grab();st.prazo=b.dataset.w||null;draw()};
   $('#dP').onchange=e=>{grab();st.prazo=e.target.value||null;draw()};
   if($('#dS'))$('#dS').onclick=e=>{const b=e.target.closest('[data-s]');if(!b)return;grab();st.estado=b.dataset.s;draw()};
@@ -873,13 +885,15 @@ function drawer(t){editing=t;const isNew=!T.some(x=>x.id===t.id),d=t,prev=isNew?
   $('#dCl').onchange=e=>{if(e.target.dataset.ci!=null)st.checklist[+e.target.dataset.ci].f=e.target.checked};
   if($('#dCn'))$('#dCn').onkeydown=e=>{if(e.key==='Enter'&&e.target.value.trim()){e.preventDefault();grab();st.checklist.push({t:e.target.value.trim(),f:false});draw();$('#dCn').focus()}};
   $('#dSave').onclick=async()=>{grab();if(!String(d.titulo||'').trim()){$('#dT').focus();return}const _as=afterSave;afterSave=null;
-   const o={...d,titulo:d.titulo.trim(),quem:st.quem,estado:st.estado,prazo:st.prazo,checklist:st.checklist.filter(c=>c.t),sugestao:false};
+   const o={...d,titulo:d.titulo.trim(),quem:st.quem,com:st.com.length?[...st.com]:null,estado:st.estado,prazo:st.prazo,checklist:st.checklist.filter(c=>c.t),sugestao:false};
    const wasDone=prev&&prev.estado==='feito';
    if(o.estado==='feito'&&!wasDone){o.feito_em=Date.now();o.feito_por=me}if(o.estado!=='feito'){o.feito_em=null;o.feito_por=null}
    if(isNew){o.criado=Date.now();o.pedido_por=me;o.comentarios=[];if(isMgr())o._src='base';else{o._src='nv';o._uid=uid;o.quem=me}}
+   if(isNew&&st.cada&&o.com&&isMgr()){close();const W=[o.quem,...o.com];for(const [i,q] of W.entries())await save({...o,id:i?newId():o.id,quem:q,com:null,area:d.area||per(q).a,checklist:JSON.parse(JSON.stringify(o.checklist))},null);
+    toast(`Criada uma para cada: ${W.map(x=>per(x).n.replace(/^Dra?\. /,'')).join(', ')}`);if(_as)_as(o);return}
    close();if(!await save(o,prev))return;
    if(o.estado==='feito'&&!wasDone&&o.recorrencia)await save(nextOf(o),null);
-   toast(isNew?`Criada para ${per(o.quem).n}`:'Guardado');if(_as)_as(o)};
+   toast(isNew?`Criada para ${quemNomes(o)}`:'Guardado');if(_as)_as(o)};
   if($('#dDel'))$('#dDel').onclick=()=>{const b=$('#dDel');if(b.dataset.sure){const keep=T.find(x=>x.id===d.id);close();remove(d);toast('Tarefa apagada',()=>save({...keep},null))}else{b.dataset.sure=1;b.textContent='Tens a certeza? Carrega outra vez'}};
   if($('#dC')){const send=async()=>{const v=$('#dC').value.trim();if(!v)return;grab();const base=T.find(x=>x.id===d.id)||d;const voz=vozIds.has('dC');vozIds.delete('dC');stopMic();const c=[...(base.comentarios||[]),{p:me,t:v,at:Date.now(),...(voz?{voz:true}:{})}];d.comentarios=c;
     if(await save({...base,comentarios:c},base))draw()};
@@ -914,11 +928,11 @@ document.addEventListener('submit',e=>{const f=e.target.closest('[data-add]');if
 document.addEventListener('input',e=>{if(e.target.id==='srch'){q=e.target.value;clearTimeout(window._sq);window._sq=setTimeout(render,150)}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&chatOpen&&!editing&&!ibOpen&&!wOpen){if(GRAV)recStop();chatOpen=false;try{sessionStorage.setItem('tp_cw','')}catch(x){}render();return}if(e.key==='Escape'&&(ibOpen||wOpen)){ibOpen=false;wOpen=false;render();return}if(e.key==='Escape'&&aOpen){aOpen=false;render()}if(e.key==='Escape'&&editing){editing=null;$('#ovl').innerHTML=''}});
 let drag=null;
-document.addEventListener('dragstart',e=>{const t=e.target.closest&&e.target.closest('.t[data-id]');if(t&&isMgr()){drag=t.dataset.id;e.dataTransfer.effectAllowed='move'}else if(t)e.preventDefault()});
+let c0=null;document.addEventListener('dragstart',e=>{const t=e.target.closest&&e.target.closest('.t[data-id]');if(t&&isMgr()){drag=t.dataset.id;c0=(t.closest('[data-drop]')||{}).dataset?.drop||null;e.dataTransfer.effectAllowed='move'}else if(t)e.preventDefault()});
 document.addEventListener('dragover',e=>{const c=e.target.closest&&e.target.closest('[data-drop]');if(c&&drag){e.preventDefault();document.querySelectorAll('.col.drop').forEach(x=>x!==c&&x.classList.remove('drop'));c.classList.add('drop')}});
 document.addEventListener('dragend',()=>{document.querySelectorAll('.col.drop').forEach(x=>x.classList.remove('drop'));drag=null});
 document.addEventListener('drop',e=>{const c=e.target.closest&&e.target.closest('[data-drop]');document.querySelectorAll('.col.drop').forEach(x=>x.classList.remove('drop'));if(!c||!drag)return;e.preventDefault();const t=T.find(x=>x.id===drag);drag=null;if(!t)return;const k=c.dataset.drop;
- if(view==='equipa'&&t.quem!==k){save({...t,quem:k},t);toast(`Passada para ${per(k).n}`)}
+ if(view==='equipa'&&!has(t,k)){const from=c0;const W=quemTodos(t).filter(x=>x!==from);const nw=[k,...W];save({...t,quem:nw[0],com:nw.slice(1)},t);toast(`Passada para ${per(k).n}`)}
  if(view==='areas'&&t.area!==k){save({...t,area:k},t);toast(`Mudada para ${area(k).n}`)}});
 function toast(msg,undo){clearTimeout(window._tt);$('#toast').innerHTML=`<div class="toast" role="status"><span>${esc(msg)}</span>${undo?'<button id="undo">Desfazer</button>':''}</div>`;if(undo)$('#undo').onclick=()=>{$('#toast').innerHTML='';undo()};window._tt=setTimeout(()=>$('#toast').innerHTML='',undo?6000:2500)}
 
