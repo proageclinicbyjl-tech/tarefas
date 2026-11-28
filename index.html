@@ -128,6 +128,7 @@ h1{font-family:var(--serif);font-weight:600;font-size:28px;line-height:1.1;margi
 .pp{display:flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:3px 10px 3px 3px;font-size:12.5px;font-weight:600}
 .pp.on{border-color:var(--ink);background:var(--ink);color:var(--paper)}
 .labh{font-weight:500;color:var(--soft);font-size:11.5px;text-transform:none;letter-spacing:0;margin-left:4px}
+.tide{display:flex;flex-direction:column;gap:4px;border:1px solid var(--gold);border-radius:14px;padding:12px;background:color-mix(in srgb,var(--gold) 7%,var(--card))}.tide small{color:var(--soft);font-size:12px}.tide .foot{margin-top:8px}.gav{width:22px;height:22px;display:inline-grid;place-items:center;font-size:12px}
 .qmode{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
 .qm{display:flex;flex-direction:column;gap:2px;text-align:left;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:9px 11px;cursor:pointer;color:var(--ink)}
 .qm b{font-size:13px}.qm small{color:var(--soft);font-size:11.5px;line-height:1.35}
@@ -847,9 +848,9 @@ function side(){const base=view==='meu'?T.filter(t=>has(t,me)):T,f=x=>x.filter(t
 /* ---------- gaveta ---------- */
 function drawer(t){editing=t;const isNew=!T.some(x=>x.id===t.id),d=t,prev=isNew?null:{...t,checklist:JSON.parse(JSON.stringify(t.checklist||[]))};
  const ed=isNew||canEditT(t),full=isMgr()||(isNew)||(t._src==='nv'&&t.quem===me); // full = muda título, prazo, pessoa
- const st={quem:isMgr()?(d.quem||me):(isNew?me:d.quem),com:[...(d.com||[])].filter(x=>x!==d.quem),cada:false,estado:d.estado||'afazer',prazo:d.prazo||null,checklist:JSON.parse(JSON.stringify(d.checklist||[]))};
+ const st={quem:isMgr()?(d.quem||me):(isNew?me:d.quem),com:[...(d.com||[])].filter(x=>x!==d.quem),cada:false,toIde:false,share:[],estado:d.estado||'afazer',prazo:d.prazo||null,checklist:JSON.parse(JSON.stringify(d.checklist||[]))};
  const qd=[['hoje','Hoje',TODAY()],['amanha','Amanhã',addD(TODAY(),1)],['semana','Até sábado',endWeek()],['sem','Sem data',null]];
- const dis=c=>c?'':' disabled';
+ const dis=c=>c?'':' disabled',canIde=!isNew&&(isMgr()||(d._src==='nv'&&d.quem===me));
  const draw=()=>{
  $('#ovl').innerHTML=`<div class="ov" id="ov"><div class="drawer" role="dialog" aria-label="Tarefa">
  <div style="display:flex;justify-content:space-between;align-items:center"><span class="lab" style="color:var(--gold)">${isNew?'Nova tarefa':ed?'Tarefa':'Tarefa · só para ver'}</span><button class="btn" id="dClose">Fechar</button></div>
@@ -869,7 +870,7 @@ function drawer(t){editing=t;const isNew=!T.some(x=>x.id===t.id),d=t,prev=isNew?
  </div></details>
  ${isNew?'':`<div class="fld cm"><span class="lab">Conversa</span>${(d.comentarios||[]).map(c=>`<div><small>${esc(per(c.p).n)} · ${new Date(c.at).toLocaleString('pt-PT',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}${c.voz?' · 🎙':''}</small>${esc(c.t)}</div>`).join('')||'<p class="note" style="margin:0">Ainda sem mensagens.</p>'}${ed?`<div style="display:flex;gap:6px">${micBtn('dC')}<input id="dC" placeholder="Escrever ou falar…" style="flex:1;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--card)"><button class="btn" id="dCs" type="button">Enviar</button></div>`:''}</div>`}
  ${!isNew&&(d.pedido_por||d.sugestao)?`<p class="sub" style="font-size:12px;margin:0">${d.sugestao?'Sugestão criada a partir do dashboard. Confirma ou apaga. ':''}${d.pedido_por?'Pedida por '+esc(per(d.pedido_por).n)+'.':''}</p>`:''}
- ${ed?`<div class="foot"><div>${!isNew&&(isMgr()||(d._src==='nv'&&d.quem===me))?'<button class="btn" id="dDel" type="button" style="color:var(--red)">Apagar</button>':''}</div><button class="btn pri" id="dSave" type="button">${isNew?'Criar tarefa':'Guardar'}</button></div>`:''}
+ ${ed&&st.toIde?`<div class="tide"><b>💡 Tornar esta tarefa numa ideia</b><small>Sai das tarefas e vai para a Caixa de ideias${me===JH?'':' da Jhennyfer'}.</small><span class="lab" style="margin-top:6px">Partilhar com <small class="labh">opcional, podes escolher várias</small></span><div class="people" id="dSh">${convs().map(c=>{const on=st.share.includes(c.k);return `<button type="button" class="pp${on?' on':''}" data-sh="${esc(c.k)}" aria-pressed="${on}">${c.p?av(c.p,'s'):`<span class="gav">${c.g===1?'👥':'💬'}</span>`}${esc(c.n)}</button>`}).join('')}</div><div class="foot"><button class="btn" id="dIdeX" type="button">Cancelar</button><button class="btn pri" id="dIdeOk" type="button">${st.share.length?'Tornar ideia e partilhar':'Tornar ideia'}</button></div></div>`:ed?`<div class="foot"><div style="display:flex;gap:6px;flex-wrap:wrap">${!isNew&&(isMgr()||(d._src==='nv'&&d.quem===me))?'<button class="btn" id="dDel" type="button" style="color:var(--red)">Apagar</button>':''}${canIde?'<button class="btn" id="dIde" type="button">💡 Tornar ideia</button>':''}</div><button class="btn pri" id="dSave" type="button">${isNew?'Criar tarefa':'Guardar'}</button></div>`:''}
  </div></div>`;wire()};
  const grab=()=>{const g=id=>document.getElementById(id);if(full){d.titulo=g('dT').value;d.area=g('dA').value;d.prioridade=g('dU').checked?'alta':'normal';d.recorrencia=g('dR').value||null;d.notas=g('dN').value;d.processo=g('dPc').value||null}
   if(g('dE'))d.espera_por=g('dE').value.trim()||null;st.checklist=st.checklist.map((c,i)=>({t:(document.querySelector(`[data-ct="${i}"]`)||{}).value??c.t,f:c.f}))};
@@ -886,7 +887,16 @@ function drawer(t){editing=t;const isNew=!T.some(x=>x.id===t.id),d=t,prev=isNew?
   $('#dCl').onclick=e=>{const x=e.target.closest('[data-cx]');if(x){grab();st.checklist.splice(+x.dataset.cx,1);draw()}};
   $('#dCl').onchange=e=>{if(e.target.dataset.ci!=null)st.checklist[+e.target.dataset.ci].f=e.target.checked};
   if($('#dCn'))$('#dCn').onkeydown=e=>{if(e.key==='Enter'&&e.target.value.trim()){e.preventDefault();grab();st.checklist.push({t:e.target.value.trim(),f:false});draw();$('#dCn').focus()}};
-  $('#dSave').onclick=async()=>{grab();if(!String(d.titulo||'').trim()){$('#dT').focus();return}const _as=afterSave;afterSave=null;
+  if($('#dIde'))$('#dIde').onclick=()=>{grab();st.toIde=true;draw();setTimeout(()=>{const x=$('.tide');x&&x.scrollIntoView({block:'nearest',behavior:'smooth'})},0)};
+  if($('#dIdeX'))$('#dIdeX').onclick=()=>{st.toIde=false;st.share=[];draw()};
+  if($('#dSh'))$('#dSh').onclick=e=>{const b=e.target.closest('[data-sh]');if(!b)return;const k=b.dataset.sh;st.share=st.share.includes(k)?st.share.filter(x=>x!==k):[...st.share,k];draw();setTimeout(()=>{const x=$('.tide');x&&x.scrollIntoView({block:'nearest'})},0)};
+  if($('#dIdeOk'))$('#dIdeOk').onclick=async()=>{const b=$('#dIdeOk');if(b.disabled)return;b.disabled=true;grab();const keep=T.find(x=>x.id===d.id)||d,tit=String(d.titulo||'').trim();if(!tit){b.disabled=false;return}
+   const nt=String(d.notas||'').trim(),cl=st.checklist.filter(c=>c.t).map(c=>'- '+c.t).join('\n');
+   const i=await newIde([tit,nt,cl].filter(Boolean).join('\n\n'),me,false,{de_tarefa:d.id,area_tarefa:d.area||null});if(!i){b.disabled=false;return}
+   const sh=[...st.share];close();for(const k of sh)await sendMsg(k,tit,false,{tipo:'ideia',iid:i.id});
+   remove(keep);const nm=sh.map(k=>(convs().find(c=>c.k===k)||{}).n).filter(Boolean).map(n=>n.replace(/^Dra?\. /,''));
+   toast(nm.length?`Virou ideia e foi partilhada com ${nm.join(', ')}`:'Virou ideia',()=>{save({...keep},null);if(!sh.length){IDE=IDE.filter(x=>x.id!==i.id);render();del('ideias/'+i.id).catch(()=>{})}})};
+  if($('#dSave'))$('#dSave').onclick=async()=>{grab();if(!String(d.titulo||'').trim()){$('#dT').focus();return}const _as=afterSave;afterSave=null;
    const o={...d,titulo:d.titulo.trim(),quem:st.quem,com:st.com.length?[...st.com]:null,estado:st.estado,prazo:st.prazo,checklist:st.checklist.filter(c=>c.t),sugestao:false};
    const wasDone=prev&&prev.estado==='feito';
    if(o.estado==='feito'&&!wasDone){o.feito_em=Date.now();o.feito_por=me}if(o.estado!=='feito'){o.feito_em=null;o.feito_por=null}
