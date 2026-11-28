@@ -16,7 +16,7 @@ function snap(s){if(s.kind==='col'){const ds=colDocs(s.key);return{_k:JSON.strin
 function emit(){for(const s of subs.slice()){const n=snap(s);if(n._k!==s.last){s.last=n._k;try{s.cb(n)}catch(e){console.error(e)}}}}
 let fails=0,busy=false;
 async function pull(){if(busy||!tok)return;busy=true;try{const r=await rpc('docs_todos',{p_token:tok});
- if(r&&r.erro==='sessao'){busy=false;return fim()}DOCS=new Map(((r&&r.docs)||[]).map(d=>[d.path,d.data]));fails=0;first=true;emit()}
+ if(r&&r.erro==='sessao'){busy=false;return fim()}if(r&&r.erro==='trocar'){busy=false;return location.reload()}DOCS=new Map(((r&&r.docs)||[]).map(d=>[d.path,d.data]));fails=0;first=true;emit()}
  catch(e){if(++fails===3)subs.forEach(s=>s.err&&s.err(e))}busy=false}
 setInterval(()=>{if(EU&&!document.hidden)pull()},5000);
 document.addEventListener('visibilitychange',()=>{if(EU&&!document.hidden)pull()});
@@ -87,58 +87,110 @@ const css=`#lg{position:fixed;inset:0;z-index:200;background:#fbf7f1;display:gri
 #ac h2{font-family:var(--serif,Georgia,serif);margin:0;font-size:20px}#ac p{margin:0;color:var(--soft,#7a6e62);font-size:13px}
 #ac .r{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid var(--line,#e6dccf);padding-top:10px}#ac .r b{min-width:110px}#ac .r small{color:var(--soft,#7a6e62);flex:1;min-width:150px}
 #ac .r button{border:1px solid var(--line,#e6dccf);background:var(--card,#fff);border-radius:8px;padding:5px 10px;font-weight:600;font-size:12.5px;cursor:pointer;color:var(--ink,#2a2420)}#ac .r button.w{border-color:var(--red,#c0392b);color:var(--red,#c0392b)}
-#ac .x{align-self:flex-end;border:0;background:none;font-size:22px;cursor:pointer;color:var(--soft,#7a6e62)}`;
+#ac .x{align-self:flex-end;border:0;background:none;font-size:22px;cursor:pointer;color:var(--soft,#7a6e62)}
+#lg .lb{font-size:13px;font-weight:700;color:#5b4f45;margin:6px 0 -6px}
+#lg .pwf{position:relative}#lg .pwf input{padding-right:52px}
+#lg .eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:40px;height:40px;border:0;border-radius:10px;background:none;color:#9b8e82;cursor:pointer;display:grid;place-items:center}
+#lg .eye:hover,#lg .eye.on{color:#b08d57;background:#f6efe4}
+#lg .hint{font-size:13.5px;color:#9b8e82;margin-top:4px}
+#lg .forca{display:flex;align-items:center;gap:10px;font-size:12.5px;color:#7d7066;min-height:18px}
+#lg .forca i{flex:1;height:6px;border-radius:3px;background:#eee4d6;position:relative;overflow:hidden}
+#lg .forca i::after{content:"";position:absolute;inset:0;width:0;background:#d6453a;border-radius:3px;transition:width .2s,background .2s}
+#lg .forca[data-n="1"] i::after{width:25%}#lg .forca[data-n="2"] i::after{width:50%;background:#d79a3a}#lg .forca[data-n="3"] i::after{width:75%;background:#7aa35b}#lg .forca[data-n="4"] i::after{width:100%;background:#3f8a5c}
+#lg .forca span{min-width:80px;text-align:right}
+#ac .r{display:grid;grid-template-columns:1fr auto;align-items:center;gap:6px 10px}
+#ac .rn{display:flex;flex-direction:column;gap:2px;min-width:0}#ac .rn small{flex:none;min-width:0}
+#ac .ra{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+#ac .lgn{border:0 !important;background:none !important;padding:0 !important;font-weight:400 !important;color:var(--soft,#7a6e62) !important;text-align:left;font-size:12.5px !important}
+#ac .lgn b{color:var(--ink,#2a2420)}
+#ac .lgf{display:flex;gap:6px}#ac .lgf input{border:1px solid var(--line,#e6dccf);border-radius:8px;padding:5px 8px;font-size:13px;width:140px}
+#ac .sp{grid-column:1/-1;background:#f6efe4;border:1px solid #e6d3b3;border-radius:12px;padding:12px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+#ac .sp span{font-size:12.5px;font-weight:700;color:#8a6a3d;width:100%}
+#ac .sp code{font-size:20px;font-weight:700;letter-spacing:1px;color:#2a2420;background:#fff;border-radius:8px;padding:6px 12px;user-select:all}
+#ac .sp small{width:100%;color:#7a6e62;font-size:12px}
+#ac form.bx input{border:1px solid var(--line,#e6dccf);border-radius:10px;padding:11px 12px;font-size:15px}
+#ac .go2{border:0;border-radius:10px;padding:12px;font-weight:700;background:var(--ink,#2a2420);color:var(--paper,#fbf7f1);cursor:pointer}
+#ac .erm{color:#d6453a !important;font-weight:600}#ac .okm{color:#3f8a5c !important;font-weight:600;font-size:14px !important}
+@media (max-width:520px){#ac .r{grid-template-columns:1fr}#ac .ra{justify-content:flex-start}}`;
 const st=document.createElement('style');st.textContent=css;document.head.appendChild(st);
-let L=null,P0=[],sel=null,msg='',bz=false;
+let L=null,msg='',bz=false,stage='nome',NOME='',TROCA=null;
 function box(){if(!L){L=document.createElement('div');L.id='lg';document.body.appendChild(L)}return L}
-const COR={joana:'#2a2420',jhennyfer:'#8a6a3d',flavia:'#b0563f',brenda:'#4f7a5c',mariana:'#a86e8f',eduarda:'#3f6b8f',luz:'#7b5ea7'};
-const FUN={joana:'CEO',jhennyfer:'Gestão',flavia:'Leads e marcações',brenda:'Receção e stock',mariana:'Felicidade',eduarda:'Estratégia',luz:'Marketing, Meta e CRM'};
-const ini=n=>String(n||'?').replace(/^Dra?\.\s*/,'').trim().slice(0,1).toUpperCase();
-const avL=(x,c)=>`<span class="av${c?' '+c:''}" style="background:${COR[x.id]||'#8a6a3d'}" aria-hidden="true">${esc(ini(x.nome))}</span>`;
 const side=`<aside class="lgside"><div class="lgbrand">PROAGE<small>TAREFAS DA EQUIPA</small></div><p class="lgquote">Nós promovemos <em>felicidade</em>.</p><div class="lgfoot">Proage Clinic · Porto</div></aside>`;
-function draw(){const b=box();const p=P0.find(x=>x.id===sel);
- const h=new Date().getHours(),ola=h<13?'Bom dia':h<20?'Boa tarde':'Boa noite';
- if(!p){b.innerHTML=`${side}<main class="lgmain"><div class="bx"><p class="kk">${ola}</p><h2>Quem és?</h2><p>Toca no teu nome para entrar.</p>${msg?`<div class="er">${esc(msg)}</div>`:''}<div class="ns">${P0.map(x=>`<button data-p="${esc(x.id)}">${avL(x)}<span><b>${esc(x.nome)}</b><small>${esc(FUN[x.id]||'')}</small></span><span class="arr" aria-hidden="true">→</span></button>`).join('')}</div></div></main>`;return}
- const nova=!p.tem_password;
- if(nova&&!p.aberta){b.innerHTML=`${side}<main class="lgmain"><div class="bx" style="max-width:440px">${avL(p,'big')}<h2>Olá, ${esc(p.nome)}</h2><p>Ainda não tens acesso. Pede à gestão (Dra. Joana, Eduarda, Mariana ou Jhennyfer) para abrir o teu acesso nas Tarefas. Depois voltas aqui e crias a tua password.</p><button class="bk" data-bk>← Voltar</button></div></main>`;return}
- b.innerHTML=`${side}<main class="lgmain"><form class="bx" autocomplete="on">${avL(p,'big')}<h2>Olá, ${esc(p.nome)}</h2><p>${nova?'Primeira vez: cria a tua password, com pelo menos 8 caracteres. Guarda-a bem, é só tua.':'Escreve a tua password.'}</p>
- <input type="text" name="username" autocomplete="username" value="${esc(p.id)}" hidden>
- <input type="password" id="pw" autocomplete="${nova?'new-password':'current-password'}" placeholder="Password" required minlength="${nova?8:1}">
- ${nova?'<input type="password" id="pw2" autocomplete="new-password" placeholder="Repete a password" required minlength="8">':''}
- ${msg?`<div class="er">${esc(msg)}</div>`:''}<button class="go" ${bz?'disabled':''}>${bz?'A entrar…':'Entrar'}</button><button type="button" class="bk" data-bk>← Não sou ${esc(p.nome)}</button></form></main>`;
- setTimeout(()=>{const i=document.getElementById('pw');i&&i.focus()},0)}
-async function abrir(){try{P0=await rpc('entrada_pessoas')||[]}catch(e){msg='Sem ligação à base de dados. Verifica a internet e recarrega a página.'}draw()}
-document.addEventListener('click',e=>{if(!L||!L.contains(e.target))return;const b=e.target.closest('[data-p]');if(b){sel=b.dataset.p;msg='';draw();return}
- if(e.target.closest('[data-bk]')){sel=null;msg='';draw()}});
-document.addEventListener('submit',async e=>{if(!L||!L.contains(e.target))return;e.preventDefault();e.stopPropagation();const p=P0.find(x=>x.id===sel);if(!p||bz)return;
- const a=document.getElementById('pw').value,b2=document.getElementById('pw2');
- if(b2&&a!==b2.value){msg='As duas passwords não são iguais.';draw();return}
- if(b2&&a.length<8){msg='A password tem de ter pelo menos 8 caracteres.';draw();return}
- bz=true;msg='';draw();try{const r=await rpc('entrar',{p_id:p.id,p_senha:a});bz=false;
-  if(!r||r.erro){msg=(r&&r.erro)||'Não foi possível entrar.';if(r&&/acesso|gestão/.test(r.erro))P0=await rpc('entrada_pessoas');draw();return}
+const EYE='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const pw=(id,ph,ac)=>`<div class="pwf"><input type="password" id="${id}" autocomplete="${ac}" placeholder="${ph}" required><button type="button" class="eye" data-eye="${id}" aria-label="Mostrar a senha">${EYE}</button></div>`;
+function draw(){const b=box();const h=new Date().getHours(),ola=h<13?'Bom dia':h<20?'Boa tarde':'Boa noite';
+ const er=msg?`<div class="er" role="alert">${esc(msg)}</div>`:'';
+ if(stage==='trocar'){b.innerHTML=`${side}<main class="lgmain"><form class="bx" data-lg="trocar" autocomplete="on"><p class="kk">Primeira entrada</p><h2>Cria a tua senha</h2><p>A senha que recebeste era provisória. Escolhe agora uma só tua, com pelo menos 8 caracteres. É com ela que entras daqui para a frente.</p>
+ <input type="text" name="username" autocomplete="username" value="${esc(NOME)}" hidden>${pw('pw','Nova senha','new-password')}${pw('pw2','Repete a nova senha','new-password')}
+ <div class="forca" id="forca"><i></i><span></span></div>${er}<button class="go" ${bz?'disabled':''}>${bz?'A guardar…':'Guardar e entrar'}</button><button type="button" class="bk" data-lgsair>Sair</button></form></main>`;
+  setTimeout(()=>{const i=document.getElementById('pw');i&&i.focus()},0);return}
+ b.innerHTML=`${side}<main class="lgmain"><form class="bx" data-lg="entrar" autocomplete="on"><p class="kk">${ola}</p><h2>Entrar nas Tarefas</h2><p>Escreve o teu nome e a tua senha.</p>
+ <label class="lb" for="nm">Nome</label><input type="text" id="nm" name="username" autocomplete="username" autocapitalize="words" spellcheck="false" placeholder="Ex.: Brenda" value="${esc(NOME)}" required>
+ <label class="lb" for="pw">Senha</label>${pw('pw','A tua senha','current-password')}
+ ${er}<button class="go" ${bz?'disabled':''}>${bz?'A entrar…':'Entrar'}</button>
+ <p class="hint">Primeira vez ou esqueceste-te da senha? Pede à gestão uma senha provisória. Na primeira entrada crias a tua.</p></form></main>`;
+ setTimeout(()=>{const i=document.getElementById(NOME?'pw':'nm');i&&i.focus()},0)}
+function abrir(){stage='nome';draw()}
+const forca=v=>{let n=0;if(v.length>=8)n++;if(v.length>=12)n++;if(/[A-Z]/.test(v)&&/[a-z]/.test(v))n++;if(/\d/.test(v))n++;if(/[^A-Za-z0-9]/.test(v))n++;return Math.min(4,n)};
+document.addEventListener('input',e=>{if(!L||e.target.id!=='pw'||stage!=='trocar')return;const f=document.getElementById('forca');if(!f)return;const v=e.target.value,n=v?forca(v):0;
+ f.dataset.n=n;f.querySelector('span').textContent=!v?'':v.length<8?'Curta demais':['Fraca','Fraca','Razoável','Boa','Muito boa'][n]});
+document.addEventListener('click',e=>{if(!L||!L.contains(e.target))return;const y=e.target.closest('[data-eye]');if(y){const i=document.getElementById(y.dataset.eye);if(i){i.type=i.type==='password'?'text':'password';y.classList.toggle('on',i.type==='text')}return}
+ if(e.target.closest('[data-lgsair]')){fim()}});
+document.addEventListener('submit',async e=>{if(!L||!L.contains(e.target))return;e.preventDefault();e.stopPropagation();if(bz)return;
+ if(stage==='trocar'){const a=document.getElementById('pw').value,b2=document.getElementById('pw2').value;
+  if(a.length<8){msg='A senha tem de ter pelo menos 8 caracteres.';draw();return}if(a!==b2){msg='As duas senhas não são iguais.';draw();return}
+  bz=true;msg='';draw();try{const r=await rpc('senha_trocar',{p_token:tok,p_atual:'',p_nova:a});bz=false;if(!r||r.erro){msg=(r&&r.erro)||'Não foi possível guardar.';draw();return}
+   await iniciar()}catch(err){bz=false;msg='Sem ligação. Tenta outra vez.';draw()}return}
+ NOME=document.getElementById('nm').value.trim();const a=document.getElementById('pw').value;if(!NOME||!a)return;
+ bz=true;msg='';draw();try{const r=await rpc('entrar_nome',{p_nome:NOME,p_senha:a});bz=false;
+  if(!r||r.erro){msg=(r&&r.erro)||'Não foi possível entrar.';draw();const i=document.getElementById('pw');if(i)i.value='';return}
   tok=r.token;try{localStorage.setItem(LS,tok)}catch(e){}await iniciar()}catch(err){bz=false;msg='Sem ligação. Tenta outra vez.';draw()}},true);
 async function iniciar(){const r=await rpc('eu',{p_token:tok});if(!r){try{localStorage.removeItem(LS)}catch(e){}tok=null;return abrir()}
+ if(r.trocar){NOME=r.nome||NOME;stage='trocar';msg='';draw();return}
  EU=r;await pull();if(L){L.remove();L=null}ok()}
 
+/* ---------- mudar a própria senha ---------- */
+let MS=null,msMsg='',msOk=false;
+function mudarSenha(){if(!MS){MS=document.createElement('div');MS.id='ac';document.body.appendChild(MS)}
+ MS.innerHTML=`<form class="bx" data-ms><button type="button" class="x" data-msx aria-label="Fechar">×</button><h2>Mudar a minha senha</h2>
+ ${msOk?'<p class="okm">Senha mudada. As outras sessões foram fechadas.</p><button type="button" class="go2" data-msx>Fechar</button>':`<p>Pelo menos 8 caracteres.</p>
+ <input type="password" id="ms0" autocomplete="current-password" placeholder="Senha atual" required><input type="password" id="ms1" autocomplete="new-password" placeholder="Nova senha" required><input type="password" id="ms2" autocomplete="new-password" placeholder="Repete a nova senha" required>
+ ${msMsg?`<p class="erm">${esc(msMsg)}</p>`:''}<button class="go2">Guardar</button>`}</form>`;
+ setTimeout(()=>{const i=document.getElementById('ms0');i&&i.focus()},0)}
+document.addEventListener('submit',async e=>{if(!MS||!MS.contains(e.target))return;e.preventDefault();e.stopPropagation();
+ const a=document.getElementById('ms0').value,n=document.getElementById('ms1').value,n2=document.getElementById('ms2').value;
+ if(n.length<8){msMsg='A nova senha tem de ter pelo menos 8 caracteres.';return mudarSenha()}if(n!==n2){msMsg='As duas senhas não são iguais.';return mudarSenha()}
+ try{const r=await rpc('senha_trocar',{p_token:tok,p_atual:a,p_nova:n});if(!r||r.erro){msMsg=(r&&r.erro)||'Não foi possível mudar.';return mudarSenha()}msOk=true;msMsg='';mudarSenha()}catch(err){msMsg='Sem ligação. Tenta outra vez.';mudarSenha()}},true);
+
 /* ---------- acessos da equipa (gestão) ---------- */
-let AC=null,arm=null;
+let AC=null,arm=null,NOVA=null,LOGED=null,acMsg='';
 const quando=t=>{if(!t)return'';const d=new Date(t);return d.toLocaleDateString('pt-PT',{day:'2-digit',month:'2-digit'})+' às '+d.toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'})};
-async function acessos(){if(!AC){AC=document.createElement('div');AC.id='ac';document.body.appendChild(AC)}AC.innerHTML='<div class="bx"><p>A carregar…</p></div>';
+async function acessos(){if(!AC){AC=document.createElement('div');AC.id='ac';document.body.appendChild(AC)}
  let L2=[];try{L2=await rpc('acessos',{p_token:tok})}catch(e){}if(!Array.isArray(L2)){AC.innerHTML='<div class="bx"><p>Não foi possível abrir os acessos.</p><button class="x" data-acx>×</button></div>';return}
- AC.innerHTML=`<div class="bx"><button class="x" data-acx aria-label="Fechar">×</button><h2>Acessos da equipa</h2><p>«Abrir acesso» deixa a pessoa criar a sua password na próxima entrada. «Repor password» faz o mesmo para quem se esqueceu e termina as sessões dela.</p>
- ${L2.map(x=>{const est=!x.ativo?'Desligada':x.tem_password?(x.ultimo_acesso?'Ativa · última entrada '+quando(x.ultimo_acesso):'Ativa'):x.aberta?'À espera de criar password':'Sem acesso';
-  const a1=x.tem_password?['abrir','Repor password',true]:x.aberta?null:['abrir','Abrir acesso',false];
-  const a2=x.id===EU.id?null:x.ativo?['desligar','Desligar',true]:['ligar','Ligar',false];
-  const bt=a=>a?`<button class="${a[2]?'w':''}" data-ac="${esc(x.id)}|${a[0]}">${arm===x.id+'|'+a[0]?'Confirmar?':a[1]}</button>`:'';
-  return `<div class="r"><b>${esc(x.nome)}${x.gestao?' · gestão':''}</b><small>${esc(est)}</small>${bt(a1)}${bt(a2)}</div>`}).join('')}</div>`}
+ AC.innerHTML=`<div class="bx"><button class="x" data-acx aria-label="Fechar">×</button><h2>Acessos da equipa</h2>
+ <p>Cada pessoa entra com o <b>nome de entrada</b> e a senha dela. Para dar acesso, ou se alguém se esqueceu da senha, gera uma <b>senha provisória</b> e envia-lha. Na primeira entrada a pessoa cria a sua.</p>
+ ${acMsg?`<p class="erm">${esc(acMsg)}</p>`:''}
+ ${L2.map(x=>{const est=!x.ativo?'Desligada':!x.tem_password?'Sem acesso':x.provisoria?'Com senha provisória, ainda não entrou':(x.ultimo_acesso?'Ativa · última entrada '+quando(x.ultimo_acesso):'Ativa');
+  const nova=NOVA&&NOVA.id===x.id;const k1=x.id+'|provisoria';
+  const b1=x.ativo?`<button class="${x.tem_password?'w':''}" data-ac="${k1}">${arm===k1?'Confirmar?':x.tem_password?'Nova senha provisória':'Dar acesso'}</button>`:'';
+  const k2=x.id+'|'+(x.ativo?'desligar':'ligar');const b2=x.id===EU.id?'':`<button class="${x.ativo?'w':''}" data-ac="${k2}">${arm===k2?'Confirmar?':x.ativo?'Desligar':'Ligar'}</button>`;
+  const lg=LOGED===x.id?`<form class="lgf" data-login="${esc(x.id)}"><input id="lgv" value="${esc(x.login||'')}" aria-label="Nome de entrada"><button>Guardar</button></form>`:`<button class="lgn" data-loged="${esc(x.id)}" title="Mudar o nome de entrada">entra como <b>${esc(x.login||'?')}</b> ✎</button>`;
+  return `<div class="r"><div class="rn"><b>${esc(x.nome)}${x.gestao?' · gestão':''}</b>${lg}<small>${esc(est)}</small></div><div class="ra">${b1}${b2}</div>
+  ${nova?`<div class="sp"><span>Senha provisória de ${esc(x.nome)}</span><code id="spv">${esc(NOVA.senha)}</code><button data-spcopy>Copiar</button><small>Envia-lha por mensagem. Só aparece agora: se fechares, gera outra.</small></div>`:''}</div>`}).join('')}</div>`}
 document.addEventListener('click',async e=>{
  if(e.target.closest('[data-sair]')){e.preventDefault();e.stopPropagation();fim();return}
- if(e.target.closest('[data-acessos]')){e.preventDefault();e.stopPropagation();arm=null;acessos();return}
+ if(e.target.closest('[data-acessos]')){e.preventDefault();e.stopPropagation();arm=null;NOVA=null;LOGED=null;acMsg='';acessos();return}
+ if(e.target.closest('[data-mudarsenha]')){e.preventDefault();e.stopPropagation();msMsg='';msOk=false;mudarSenha();return}
+ if(MS&&MS.contains(e.target)){if(e.target.closest('[data-msx]')||e.target===MS){MS.remove();MS=null}return}
  if(!AC||!AC.contains(e.target))return;
- if(e.target.closest('[data-acx]')||e.target===AC){AC.remove();AC=null;return}
+ if(e.target.closest('[data-acx]')||e.target===AC){AC.remove();AC=null;NOVA=null;return}
+ if(e.target.closest('[data-spcopy]')){try{await navigator.clipboard.writeText(NOVA.senha);e.target.textContent='Copiada ✓'}catch(x){const c=document.getElementById('spv');if(c){const r=document.createRange();r.selectNodeContents(c);const s=getSelection();s.removeAllRanges();s.addRange(r)}}return}
+ const le=e.target.closest('[data-loged]');if(le){LOGED=le.dataset.loged;await acessos();const i=document.getElementById('lgv');if(i){i.focus();i.select()}return}
  const b=e.target.closest('[data-ac]');if(!b)return;const k=b.dataset.ac,[id,ac]=k.split('|');
  if(b.classList.contains('w')&&arm!==k){arm=k;return acessos()}
- arm=null;try{const r=await rpc('acesso_mudar',{p_token:tok,p_id:id,p_acao:ac});if(r&&r.erro)console.warn(r.erro)}catch(err){}acessos()},true);
+ arm=null;acMsg='';try{const r=await rpc('acesso_mudar',{p_token:tok,p_id:id,p_acao:ac});if(r&&r.erro)acMsg=r.erro;else if(r&&r.senha)NOVA={id,senha:r.senha}}catch(err){acMsg='Sem ligação. Tenta outra vez.'}acessos()},true);
+document.addEventListener('submit',async e=>{const f=e.target.closest&&e.target.closest('[data-login]');if(!f||!AC||!AC.contains(f))return;e.preventDefault();e.stopPropagation();
+ const v=document.getElementById('lgv').value;acMsg='';try{const r=await rpc('acesso_mudar',{p_token:tok,p_id:f.dataset.login,p_acao:'login:'+v});if(r&&r.erro)acMsg=r.erro;else LOGED=null}catch(err){acMsg='Sem ligação.'}acessos()},true);
 
 /* ---------- arranque ---------- */
 const go=()=>{if(tok)iniciar().catch(()=>{msg='Sem ligação à base de dados. Verifica a internet e recarrega a página.';abrir()});else abrir()};
